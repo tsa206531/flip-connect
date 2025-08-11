@@ -1,0 +1,381 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* 主色彩系統 - 研討會主題 */
+  --primary: oklch(0.85 0.15 250); /* 科技藍 */
+  --primary-foreground: oklch(0.98 0.02 250);
+  --secondary: oklch(0.92 0.08 150); /* 清新綠 */
+  --secondary-foreground: oklch(0.15 0.08 150);
+  --accent: oklch(0.88 0.12 45); /* 活力橙 */
+  --accent-foreground: oklch(0.15 0.12 45);
+  
+  /* 背景系統 */
+  --background: oklch(0.05 0.02 250); /* 深藍黑 */
+  --foreground: oklch(0.98 0.02 250);
+  --card: oklch(0.08 0.03 250);
+  --card-foreground: oklch(0.98 0.02 250);
+  --popover: oklch(0.08 0.03 250);
+  --popover-foreground: oklch(0.98 0.02 250);
+  
+  /* 功能色彩 */
+  --muted: oklch(0.12 0.03 250);
+  --muted-foreground: oklch(0.65 0.03 250);
+  --border: oklch(0.15 0.05 250);
+  --input: oklch(0.12 0.03 250);
+  --ring: oklch(0.85 0.15 250);
+  
+  /* 狀態色彩 */
+  --success: oklch(0.75 0.15 150);
+  --success-foreground: oklch(0.15 0.15 150);
+  --warning: oklch(0.88 0.12 45);
+  --warning-foreground: oklch(0.15 0.12 45);
+  --destructive: oklch(0.65 0.20 25);
+  --destructive-foreground: oklch(0.98 0.20 25);
+  
+  /* 特殊效果 */
+  --glow-primary: oklch(0.85 0.15 250 / 0.3);
+  --glow-secondary: oklch(0.92 0.08 150 / 0.3);
+  --glow-accent: oklch(0.88 0.12 45 / 0.3);
+  
+  --radius: 0.75rem;
+  --sidebar: oklch(0.08 0.03 250);
+  --sidebar-foreground: oklch(0.98 0.02 250);
+  --sidebar-primary: oklch(0.85 0.15 250);
+  --sidebar-primary-foreground: oklch(0.98 0.02 250);
+  --sidebar-accent: oklch(0.12 0.03 250);
+  --sidebar-accent-foreground: oklch(0.98 0.02 250);
+  --sidebar-border: oklch(0.15 0.05 250);
+  --sidebar-ring: oklch(0.85 0.15 250);
+}
+
+.dark {
+  --background: oklch(0.05 0.02 250);
+  --foreground: oklch(0.98 0.02 250);
+  --card: oklch(0.08 0.03 250);
+  --card-foreground: oklch(0.98 0.02 250);
+  --popover: oklch(0.08 0.03 250);
+  --popover-foreground: oklch(0.98 0.02 250);
+  --primary: oklch(0.85 0.15 250);
+  --primary-foreground: oklch(0.15 0.15 250);
+  --secondary: oklch(0.12 0.03 250);
+  --secondary-foreground: oklch(0.98 0.02 250);
+  --muted: oklch(0.12 0.03 250);
+  --muted-foreground: oklch(0.65 0.03 250);
+  --accent: oklch(0.12 0.03 250);
+  --accent-foreground: oklch(0.98 0.02 250);
+  --destructive: oklch(0.65 0.20 25);
+  --destructive-foreground: oklch(0.98 0.20 25);
+  --border: oklch(0.15 0.05 250);
+  --input: oklch(0.12 0.03 250);
+  --ring: oklch(0.85 0.15 250);
+  --sidebar: oklch(0.08 0.03 250);
+  --sidebar-foreground: oklch(0.98 0.02 250);
+  --sidebar-primary: oklch(0.85 0.15 250);
+  --sidebar-primary-foreground: oklch(0.98 0.02 250);
+  --sidebar-accent: oklch(0.12 0.03 250);
+  --sidebar-accent-foreground: oklch(0.98 0.02 250);
+  --sidebar-border: oklch(0.15 0.05 250);
+  --sidebar-ring: oklch(0.85 0.15 250);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* 自定義滾動條 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-muted/20;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary/40 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/60;
+  }
+}
+
+@layer components {
+  /* Typography Classes */
+  .font-dela-gothic {
+    font-family: var(--font-dela-gothic), sans-serif;
+  }
+
+  .font-syne {
+    font-family: var(--font-syne), sans-serif;
+  }
+
+  .font-noto-sans-tc {
+    font-family: var(--font-noto-sans-tc), sans-serif;
+  }
+
+  /* 研討會主題標題樣式 */
+  .conference-title {
+    @apply text-5xl md:text-6xl lg:text-7xl font-bold;
+    background: linear-gradient(135deg, 
+      hsl(var(--primary)) 0%, 
+      hsl(var(--secondary)) 50%, 
+      hsl(var(--accent)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 30px hsl(var(--glow-primary));
+  }
+
+  /* 動態副標題 */
+  .dynamic-subtitle {
+    @apply text-lg md:text-xl lg:text-2xl font-medium;
+    background: linear-gradient(135deg, 
+      hsl(var(--muted-foreground)) 0%, 
+      hsl(var(--foreground)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* 玻璃擬態效果 */
+  .glass-morphism {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-morphism-hover {
+    @apply hover:bg-white/10 hover:border-white/20;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 發光按鈕 */
+  .glow-button {
+    @apply relative overflow-hidden;
+    background: linear-gradient(135deg, 
+      hsl(var(--primary)) 0%, 
+      hsl(var(--secondary)) 100%);
+    box-shadow: 
+      0 0 20px hsl(var(--glow-primary)),
+      0 0 40px hsl(var(--glow-primary) / 0.5);
+  }
+
+  .glow-button::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent;
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+
+  .glow-button:hover::before {
+    transform: translateX(100%);
+  }
+
+  /* Cards Container - 響應式網格系統 */
+  .cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    justify-content: center;
+  }
+
+  /* Card Wrapper - 統一的卡片容器 */
+  .card-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  /* Card Item - 響應式尺寸 */
+  .card-item {
+    width: 100%;
+    max-width: 280px;
+    aspect-ratio: 3/4;
+    flex-shrink: 0;
+  }
+
+  /* Card Info - 統一的資訊樣式 */
+  .card-info {
+    margin-top: 1.5rem;
+    text-align: center;
+    width: 100%;
+  }
+
+  .card-name {
+    @apply text-white font-bold text-lg md:text-xl mb-2;
+    font-family: var(--font-noto-sans-tc), -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  .card-position {
+    @apply text-muted-foreground text-sm md:text-base font-medium;
+    font-family: var(--font-syne), sans-serif;
+  }
+
+  /* 進階動畫效果 */
+  @keyframes fadeInUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { 
+      opacity: 0.6;
+      transform: scale(1);
+    }
+    50% { 
+      opacity: 1;
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* 浮動動畫類 */
+  .float-animation {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .shimmer-effect {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer-effect::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 2s infinite;
+  }
+
+  /* 響應式設計 */
+  @media (max-width: 1024px) {
+    .cards-container {
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      padding: 1.5rem;
+    }
+    
+    .conference-title {
+      @apply text-4xl md:text-5xl;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .cards-container {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+    }
+    
+    .conference-title {
+      @apply text-3xl md:text-4xl;
+    }
+    
+    .dynamic-subtitle {
+      @apply text-base md:text-lg;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .cards-container {
+      grid-template-columns: 1fr;
+      max-width: 300px;
+    }
+    
+    .card-item {
+      max-width: 250px;
+    }
+  }
+}
+
+@layer utilities {
+  /* 3D 變換工具 */
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .transform-style-preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+
+  /* 背景漸層工具 */
+  .bg-gradient-primary {
+    background: linear-gradient(135deg, 
+      hsl(var(--primary)) 0%, 
+      hsl(var(--secondary)) 100%);
+  }
+
+  .bg-gradient-secondary {
+    background: linear-gradient(135deg, 
+      hsl(var(--secondary)) 0%, 
+      hsl(var(--accent)) 100%);
+  }
+
+  /* 發光效果工具 */
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--glow-primary));
+  }
+
+  .glow-secondary {
+    box-shadow: 0 0 20px hsl(var(--glow-secondary));
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 20px hsl(var(--glow-accent));
+  }
+
+  /* 動畫延遲工具 */
+  .animation-delay-100 { animation-delay: 100ms; }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-300 { animation-delay: 300ms; }
+  .animation-delay-400 { animation-delay: 400ms; }
+  .animation-delay-500 { animation-delay: 500ms; }
+}

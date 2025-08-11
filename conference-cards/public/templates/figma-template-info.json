@@ -1,0 +1,39 @@
+{
+  "templateName": "UX3 研討會名片模板",
+  "version": "1.0",
+  "description": "專為 UX3 三刀流交流研討會設計的名片模板",
+  "specifications": {
+    "dimensions": {
+      "width": "235px",
+      "height": "361px",
+      "ratio": "3:4"
+    },
+    "resolution": "300 DPI",
+    "formats": ["PNG", "JPG"],
+    "maxFileSize": "1.5MB"
+  },
+  "designElements": {
+    "front": ["個人照片", "姓名 (使用 Noto Sans TC 字體)", "職位 (使用 Syne 字體)", "公司/組織名稱"],
+    "back": ["聯絡資訊", "專業技能標籤", "社群媒體連結", "QR Code (可選)"]
+  },
+  "colorScheme": {
+    "primary": "#000000",
+    "secondary": "#FFFFFF",
+    "accent": "#10B981",
+    "background": "漸層或純色背景"
+  },
+  "fonts": {
+    "chinese": "Noto Sans TC",
+    "english": "Syne",
+    "fallback": "Arial, sans-serif"
+  },
+  "figmaUrl": "https://www.figma.com/community/file/ux3-conference-card-template",
+  "instructions": [
+    "1. 複製 Figma 模板到您的工作區",
+    "2. 替換模板中的佔位符內容",
+    "3. 調整顏色和字體以符合個人品牌",
+    "4. 匯出封面和封底為 PNG/JPG 格式",
+    "5. 確保檔案大小不超過 1.5MB",
+    "6. 上傳到研討會互動卡片平台"
+  ]
+}
