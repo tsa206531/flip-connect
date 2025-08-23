@@ -227,7 +227,7 @@ export default function DrawPage() {
                   <Button
                     onClick={drawCard}
                     disabled={drawing || cards.length === 0}
-                    className="relative h-32 w-32 rounded-full bg-white/10 backdrop-blur-md border-2 border-green-400/30 hover:bg-white/15 hover:border-green-400/50 text-white font-bold text-xl shadow-2xl overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed text-green-300"
+                    className="relative h-32 w-32 rounded-full bg-white/10 backdrop-blur-md border-2 border-green-400/30 hover:bg-white/15 hover:border-green-400/50  font-bold text-xl shadow-2xl overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed text-green-300"
                     style={{
                       boxShadow:
                         "0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",

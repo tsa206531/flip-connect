@@ -9,6 +9,12 @@ import MatrixLoading from "@/components/matrix-loading"
 import DrawCard from "@/components/draw-card"
 import { Download, FileImage, Sparkles, Users, Calendar, Shuffle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { HomeCheck } from "@/components/HomeCheck"
+
+
+
+
+
 
 interface Card {
   id: string
@@ -112,7 +118,7 @@ function FeatureHighlights() {
   )
 }
 
-export default function HomePage() {
+export default function Page() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isMouseMoving, setIsMouseMoving] = useState(false)
   const [showAdminModal, setShowAdminModal] = useState(false)
@@ -146,24 +152,21 @@ export default function HomePage() {
   }
 
   return (
+    <main>
     <motion.div
-      className="min-h-screen bg-background relative overflow-hidden"
+      className="min-h-screen bg-black relative overflow-hidden"
       onMouseMove={handleMouseMove}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      {/* 動態背景效果 */}
-      <div className="absolute inset-0 overflow-hidden">
-        {/* 主背景漸層 */}
-        <div className="absolute inset-0 bg-gradient-to-br from-background via-card to-background" />
-        
-        {/* 浮動光球效果 */}
+      {/* Background gradient effects - 增強光球顯示 */}
+      <div className="absolute inset-0">
         <motion.div
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl"
+          className="absolute top-1/4 left-1/4 w-96 h-96 bg-green-500/40 rounded-full blur-3xl"
           animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.1, 0.2, 0.1],
+            scale: [1, 1.3, 1],
+            opacity: [0.4, 0.8, 0.4],
           }}
           transition={{
             duration: 8,
@@ -172,10 +175,10 @@ export default function HomePage() {
           }}
         />
         <motion.div
-          className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-secondary/10 rounded-full blur-3xl"
+          className="absolute bottom-1/3 right-1/4 w-80 h-80 bg-green-400/35 rounded-full blur-3xl"
           animate={{
             scale: [1.2, 1, 1.2],
-            opacity: [0.1, 0.2, 0.1],
+            opacity: [0.35, 0.7, 0.35],
           }}
           transition={{
             duration: 10,
@@ -185,10 +188,10 @@ export default function HomePage() {
           }}
         />
         <motion.div
-          className="absolute top-1/2 left-1/2 w-64 h-64 bg-accent/10 rounded-full blur-2xl"
+          className="absolute top-1/2 left-1/2 w-64 h-64 bg-cyan-400/30 rounded-full blur-2xl"
           animate={{
-            scale: [1, 1.1, 1],
-            opacity: [0.05, 0.15, 0.05],
+            scale: [1, 1.2, 1],
+            opacity: [0.3, 0.6, 0.3],
           }}
           transition={{
             duration: 12,
@@ -197,33 +200,24 @@ export default function HomePage() {
             delay: 4
           }}
         />
-        
-        {/* 網格背景 */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--primary)) 1px, transparent 0)`,
-            backgroundSize: "40px 40px",
-          }}
-        />
       </div>
 
-      {/* 滑鼠光效 */}
+      {/* Global cursor glow effect - 與 /draw 頁面一致 */}
       <motion.div
-        className="fixed pointer-events-none z-50"
+        className="fixed pointer-events-none z-40"
         style={{
           left: mousePosition.x - 30,
           top: mousePosition.y - 30,
         }}
         animate={{
-          opacity: isMouseMoving ? 0.6 : 0,
+          opacity: isMouseMoving ? 0.45 : 0,
           scale: isMouseMoving ? 1 : 0.8,
         }}
         transition={{ duration: 0.2 }}
       >
-        <div className="w-16 h-16 bg-primary/40 rounded-full blur-xl" />
-        <div className="absolute inset-2 w-12 h-12 bg-secondary/30 rounded-full blur-lg" />
-        <div className="absolute inset-4 w-8 h-8 bg-accent/40 rounded-full blur-md" />
+        <div className="w-16 h-16 bg-yellow-400/45 rounded-full blur-xl"></div>
+        <div className="absolute inset-2 w-12 h-12 bg-yellow-300/35 rounded-full blur-lg"></div>
+        <div className="absolute inset-4 w-8 h-8 bg-yellow-200/50 rounded-full blur-md"></div>
       </motion.div>
 
       {/* 管理員按鈕 */}
@@ -342,6 +336,7 @@ export default function HomePage() {
         onClose={() => setShowDrawModal(false)} 
       />
     </motion.div>
+    </main>
   )
 }
 

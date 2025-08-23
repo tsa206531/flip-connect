@@ -234,11 +234,12 @@ export default function MatrixLoading({ onComplete }: MatrixLoadingProps) {
         {textLines.map((line, index) => (
           <motion.div
             key={line.id}
-            className="absolute whitespace-nowrap text-primary text-sm leading-5"
+            className="absolute whitespace-nowrap text-sm leading-5"
             style={{
               top: `${(index * 3) % 100}%`, // 更密集的分佈
               left: "-100%",
-              textShadow: "0 0 8px hsl(var(--primary)), 0 0 16px hsl(var(--primary))",
+              color: "#22c55e",
+              textShadow: "0 0 15px #22c55e, 0 0 30px #22c55e",
             }}
             animate={{
               x: ["0%", "120vw"],
@@ -352,14 +353,17 @@ export default function MatrixLoading({ onComplete }: MatrixLoadingProps) {
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl">
           <div className="text-center">
             <motion.div
-              className="text-primary text-lg font-bold mb-6"
-              style={{ textShadow: "0 0 12px hsl(var(--primary)), 0 0 24px hsl(var(--primary))" }}
+              className="text-lg font-bold mb-6"
+              style={{ 
+                color: "#22c55e",
+                textShadow: "0 0 15px #22c55e, 0 0 30px #22c55e" 
+              }}
               animate={{
                 opacity: [0.7, 1, 0.7],
                 textShadow: [
-                  "0 0 12px hsl(var(--primary)), 0 0 24px hsl(var(--primary))",
-                  "0 0 16px hsl(var(--primary)), 0 0 32px hsl(var(--primary)), 0 0 48px hsl(var(--primary))",
-                  "0 0 12px hsl(var(--primary)), 0 0 24px hsl(var(--primary))",
+                  "0 0 15px #22c55e, 0 0 30px #22c55e",
+                  "0 0 20px #22c55e, 0 0 40px #22c55e, 0 0 60px #22c55e",
+                  "0 0 15px #22c55e, 0 0 30px #22c55e",
                 ],
               }}
               transition={{
@@ -403,8 +407,11 @@ export default function MatrixLoading({ onComplete }: MatrixLoadingProps) {
 
             {/* 百分比顯示 */}
             <motion.div
-              className="text-primary/80 text-xs mt-4 font-mono"
-              style={{ textShadow: "0 0 8px hsl(var(--primary))" }}
+              className="text-xs mt-4 font-mono"
+              style={{ 
+                color: "#22c55e",
+                textShadow: "0 0 15px #22c55e, 0 0 30px #22c55e" 
+              }}
               animate={{
                 opacity: [0.6, 0.9, 0.6],
               }}
@@ -418,8 +425,11 @@ export default function MatrixLoading({ onComplete }: MatrixLoadingProps) {
 
             {/* 系統狀態指示 */}
             <motion.div
-              className="text-primary/60 text-xs mt-2 font-mono"
-              style={{ textShadow: "0 0 6px hsl(var(--primary))" }}
+              className="text-xs mt-2 font-mono"
+              style={{ 
+                color: "#22c55e",
+                textShadow: "0 0 15px #22c55e, 0 0 30px #22c55e" 
+              }}
               animate={{
                 opacity: [0.4, 0.7, 0.4],
               }}
@@ -462,13 +472,16 @@ export default function MatrixLoading({ onComplete }: MatrixLoadingProps) {
         >
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-12 shadow-2xl text-center">
             <motion.h1
-              className="text-5xl font-bold text-primary mb-6"
-              style={{ textShadow: "0 0 20px hsl(var(--primary)), 0 0 40px hsl(var(--primary))" }}
+              className="text-5xl font-bold mb-6"
+              style={{ 
+                color: "#22c55e",
+                textShadow: "0 0 15px #22c55e, 0 0 30px #22c55e" 
+              }}
               animate={{
                 textShadow: [
-                  "0 0 20px hsl(var(--primary)), 0 0 40px hsl(var(--primary))",
-                  "0 0 30px hsl(var(--primary)), 0 0 60px hsl(var(--primary)), 0 0 80px hsl(var(--primary))",
-                  "0 0 20px hsl(var(--primary)), 0 0 40px hsl(var(--primary))",
+                  "0 0 15px #22c55e, 0 0 30px #22c55e",
+                  "0 0 20px #22c55e, 0 0 40px #22c55e, 0 0 60px #22c55e",
+                  "0 0 15px #22c55e, 0 0 30px #22c55e",
                 ],
               }}
               transition={{
@@ -479,8 +492,11 @@ export default function MatrixLoading({ onComplete }: MatrixLoadingProps) {
               WELCOME TO UX3
             </motion.h1>
             <motion.p
-              className="text-primary/90 text-xl font-mono"
-              style={{ textShadow: "0 0 10px hsl(var(--primary))" }}
+              className="text-xl font-mono"
+              style={{ 
+                color: "#22c55e",
+                textShadow: "0 0 15px #22c55e, 0 0 30px #22c55e" 
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}

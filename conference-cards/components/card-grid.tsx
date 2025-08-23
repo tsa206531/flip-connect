@@ -8,6 +8,11 @@ import CardModal from "./card-modal"
 import { motion, AnimatePresence } from "framer-motion"
 import { Users, Calendar, Sparkles } from "lucide-react"
 
+
+
+
+
+
 interface Card {
   id: string
   name: string

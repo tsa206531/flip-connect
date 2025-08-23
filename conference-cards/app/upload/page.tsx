@@ -148,21 +148,12 @@ export default function UploadPage() {
   const [popup, setPopup] = useState<{ type: "success" | "error" | "info"; message: string; details?: string } | null>(
     null,
   )
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const [isMouseMoving, setIsMouseMoving] = useState(false)
+  // 移除滑鼠追蹤狀態以避免不必要的重新渲染
   const frontFileInputRef = useRef<HTMLInputElement>(null)
   const backFileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    setMousePosition({
-      x: e.clientX,
-      y: e.clientY,
-    })
-    setIsMouseMoving(true)
-
-    setTimeout(() => setIsMouseMoving(false), 100)
-  }
+  // 移除滑鼠移動處理函數以避免不必要的重新渲染
 
   const handleDrag = (e: React.DragEvent, type: "front" | "back") => {
     e.preventDefault()
@@ -482,7 +473,7 @@ export default function UploadPage() {
   )
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden pb-safe" onMouseMove={handleMouseMove}>
+    <div className="min-h-screen bg-background relative overflow-hidden pb-safe">
       {/* 動態背景效果 */}
       <div className="absolute inset-0 overflow-hidden">
         {/* 主背景漸層 */}
@@ -525,23 +516,7 @@ export default function UploadPage() {
         />
       </div>
 
-      {/* 滑鼠光效 */}
-      <motion.div
-        className="fixed pointer-events-none z-40"
-        style={{
-          left: mousePosition.x - 30,
-          top: mousePosition.y - 30,
-        }}
-        animate={{
-          opacity: isMouseMoving ? 0.6 : 0,
-          scale: isMouseMoving ? 1 : 0.8,
-        }}
-        transition={{ duration: 0.2 }}
-      >
-        <div className="w-16 h-16 bg-primary/40 rounded-full blur-xl" />
-        <div className="absolute inset-2 w-12 h-12 bg-secondary/30 rounded-full blur-lg" />
-        <div className="absolute inset-4 w-8 h-8 bg-accent/40 rounded-full blur-md" />
-      </motion.div>
+      {/* 移除滑鼠光效以避免閃爍問題 */}
 
       <div className="container mx-auto px-4 py-8 relative z-10">
         {/* 返回按鈕 */}
@@ -664,7 +639,7 @@ export default function UploadPage() {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 h-14 glow-button text-white rounded-xl font-syne text-lg font-semibold"
+                    className="flex-1 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-syne text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                     disabled={uploading || !name.trim() || !position.trim() || !frontImage || !backImage}
                   >
                     {uploading ? (
