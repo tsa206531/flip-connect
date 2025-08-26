@@ -38,23 +38,37 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
 
   const fetchCards = async () => {
     try {
-      const response = await fetch("/api/cards", {
+      // First try to fetch from API
+      const apiResponse = await fetch("/api/cards", {
         cache: "no-store",
       })
-      if (response.ok) {
-        const data = await response.json()
-        console.log("Fetched cards:", data.cards?.length || 0)
-
-        // Only set real uploaded cards, filter out any potential mock data
-        const realCards = (data.cards || []).filter(
+      
+      let apiCards: Card[] = []
+      if (apiResponse.ok) {
+        const apiData = await apiResponse.json()
+        apiCards = (apiData.cards || []).filter(
           (card: Card) =>
             card.id && card.name && card.position && card.frontImageUrl && card.backImageUrl && card.createdAt,
         )
-
-        console.log("Real cards after filtering:", realCards.length)
-        setCards(realCards)
-        onCardsLoaded?.(realCards)
       }
+
+      // Also fetch mock data from JSON file
+      const mockResponse = await fetch("/carddata.json", {
+        cache: "no-store",
+      })
+      
+      let mockCards: Card[] = []
+      if (mockResponse.ok) {
+        mockCards = await mockResponse.json()
+        console.log("Fetched mock cards:", mockCards.length)
+      }
+
+      // Combine both API cards and mock cards
+      const allCards = [...apiCards, ...mockCards]
+      console.log("Total cards:", allCards.length)
+      
+      setCards(allCards)
+      onCardsLoaded?.(allCards)
     } catch (error) {
       console.error("Failed to fetch cards:", error)
       setCards([]) // Ensure empty array on error

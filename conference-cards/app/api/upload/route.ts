@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { randomUUID } from "crypto"
+import { uploadCardToFirestore } from "@/lib/firestore"
 
 // Use global storage to persist across requests
 declare global {
@@ -69,16 +70,18 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Extract form fields
     console.log("Step 2: Extracting form fields...")
-    let name: string, position: string, frontImage: File, backImage: File
+    let name: string, position: string, frontImage: File, backImage: File, userId: string
     try {
       name = formData.get("name") as string
       position = formData.get("position") as string
       frontImage = formData.get("frontImage") as File
       backImage = formData.get("backImage") as File
+      userId = formData.get("userId") as string
 
       console.log("✓ Form fields extracted:", {
         name: name || "missing",
         position: position || "missing",
+        userId: userId || "missing",
         frontImageName: frontImage?.name || "missing",
         frontImageSize: frontImage?.size || "missing",
         backImageName: backImage?.name || "missing",
@@ -98,12 +101,12 @@ export async function POST(request: NextRequest) {
 
     // Step 3: Validate required fields
     console.log("Step 3: Validating required fields...")
-    if (!name || !position) {
-      console.log("✗ Missing name or position")
+    if (!name || !position || !userId) {
+      console.log("✗ Missing required fields")
       return NextResponse.json(
         {
           success: false,
-          error: "姓名和職位為必填欄位",
+          error: "姓名、職位和用戶ID為必填欄位",
           step: "validation",
         },
         { status: 400 },
@@ -255,8 +258,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Step 9: Store in global storage
-    console.log("Step 9: Storing in global storage...")
+    // Step 9: Upload to Firestore
+    console.log("Step 9: Uploading to Firestore...")
+    let firestoreCard = null
+    try {
+      firestoreCard = await uploadCardToFirestore({
+        userId: userId,
+        name: cardData.name,
+        position: cardData.position,
+        frontImageUrl: cardData.frontImageUrl,
+        backImageUrl: cardData.backImageUrl
+      })
+      console.log("✓ Card uploaded to Firestore successfully")
+    } catch (firestoreError) {
+      console.error("✗ Firestore upload failed:", firestoreError)
+      // Continue with local storage as fallback
+    }
+
+    // Step 10: Store in global storage (as backup)
+    console.log("Step 10: Storing in global storage...")
     let currentCards: any[] = []
     let totalCardsCount = 0
     try {
@@ -282,8 +302,8 @@ export async function POST(request: NextRequest) {
       totalCardsCount = 1 // At least we have this card
     }
 
-    // Step 10: Create response
-    console.log("Step 10: Creating response...")
+    // Step 11: Create response
+    console.log("Step 11: Creating response...")
     try {
       const response = {
         success: true,

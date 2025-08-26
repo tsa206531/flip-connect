@@ -2,12 +2,14 @@
 
 import type React from "react"
 import { useState, useRef } from "react"
+import { useAuth } from "@/contexts/AuthContext"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Upload, X, AlertCircle, ArrowLeft, CheckCircle, Info, Sparkles, FileImage } from "lucide-react"
-import { useRouter } from "next/navigation"
+
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -136,6 +138,8 @@ function Popup({ type, message, details, onClose }: PopupProps) {
 }
 
 export default function UploadPage() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
   const [name, setName] = useState("")
   const [position, setPosition] = useState("")
   const [frontImage, setFrontImage] = useState<File | null>(null)
@@ -151,7 +155,6 @@ export default function UploadPage() {
   // 移除滑鼠追蹤狀態以避免不必要的重新渲染
   const frontFileInputRef = useRef<HTMLInputElement>(null)
   const backFileInputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
 
   // 移除滑鼠移動處理函數以避免不必要的重新渲染
 
@@ -269,6 +272,7 @@ export default function UploadPage() {
       formData.append("position", position.trim())
       formData.append("frontImage", frontImage)
       formData.append("backImage", backImage)
+      formData.append("userId", user?.uid || "")
 
       console.log("FormData created, sending request...")
 
@@ -363,6 +367,39 @@ export default function UploadPage() {
     if (popup?.type === "success") {
       router.push("/")
     }
+  }
+
+  // 檢查用戶是否已登入
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-400 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-white font-syne">載入中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <h1 className="text-3xl font-bold text-white mb-4 font-noto-sans-tc">
+            需要登入
+          </h1>
+          <p className="text-gray-300 mb-6 font-syne">
+            請先登入您的 Google 帳戶才能上傳名片
+          </p>
+          <Button
+            onClick={() => router.push('/')}
+            className="glow-button text-white px-8 py-4 rounded-2xl font-syne text-lg font-semibold h-auto"
+          >
+            返回首頁登入
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   const UploadArea = ({

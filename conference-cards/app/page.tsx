@@ -4,9 +4,9 @@ import type React from "react"
 import { Suspense, useState, useEffect } from "react"
 import CardGrid from "@/components/card-grid"
 import { Button } from "@/components/ui/button"
-import AdminLoginModal from "@/components/admin-login-modal"
 import MatrixLoading from "@/components/matrix-loading"
 import DrawCard from "@/components/draw-card"
+import UserMenu from "@/components/user-menu"
 import { Download, FileImage, Sparkles, Users, Calendar, Shuffle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { HomeCheck } from "@/components/HomeCheck"
@@ -121,7 +121,6 @@ function FeatureHighlights() {
 export default function Page() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isMouseMoving, setIsMouseMoving] = useState(false)
-  const [showAdminModal, setShowAdminModal] = useState(false)
   const [showLoading, setShowLoading] = useState(true)
   const [showDrawModal, setShowDrawModal] = useState(false)
   const [cards, setCards] = useState<Card[]>([])
@@ -220,21 +219,14 @@ export default function Page() {
         <div className="absolute inset-4 w-8 h-8 bg-yellow-200/50 rounded-full blur-md"></div>
       </motion.div>
 
-      {/* 管理員按鈕 */}
+      {/* 用戶選單 */}
       <motion.div
         className="absolute top-6 left-6 z-40"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
-        <Button
-          onClick={() => setShowAdminModal(true)}
-          variant="ghost"
-          className="glass-morphism glass-morphism-hover text-muted-foreground hover:text-foreground px-4 py-2 rounded-xl font-syne text-sm"
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          sammi
-        </Button>
+        <UserMenu />
       </motion.div>
 
       <div className="container mx-auto px-4 py-8 relative z-10">
@@ -326,8 +318,6 @@ export default function Page() {
         </Suspense>
       </div>
 
-      {/* 管理員登入模態框 */}
-      <AdminLoginModal isOpen={showAdminModal} onClose={() => setShowAdminModal(false)} />
 
       {/* 抽卡模態框 */}
       <DrawCard 

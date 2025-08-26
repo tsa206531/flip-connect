@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { getCardsFromFirestore } from "@/lib/firestore"
 
 // Helper function to safely access global storage
 function getCardsStorage(): any[] {
@@ -48,12 +49,31 @@ export async function GET() {
   try {
     console.log("=== Cards API Called ===")
 
+    let firestoreCards: any[] = []
     let uploadedCards: any[] = []
 
-    // Safely access global storage
+    // First try to get cards from Firestore
+    try {
+      const cards = await getCardsFromFirestore()
+      firestoreCards = cards.map(card => ({
+        id: card.id,
+        name: card.name,
+        position: card.position,
+        frontImageUrl: card.frontImageUrl,
+        backImageUrl: card.backImageUrl,
+        createdAt: card.createdAt.toDate ? card.createdAt.toDate().toISOString() : card.createdAt,
+        source: 'firestore'
+      }))
+      console.log("Found Firestore cards:", firestoreCards.length)
+    } catch (firestoreError) {
+      console.warn("Firestore access failed:", firestoreError)
+      firestoreCards = []
+    }
+
+    // Also get cards from local storage as fallback
     try {
       uploadedCards = getCardsStorage()
-      console.log("Found uploaded cards:", uploadedCards.length)
+      console.log("Found local storage cards:", uploadedCards.length)
 
       if (uploadedCards.length > 0) {
         // Log storage statistics
@@ -67,35 +87,50 @@ export async function GET() {
       uploadedCards = []
     }
 
+    // Combine Firestore and local cards (Firestore takes priority)
+    const allCards = [...firestoreCards, ...uploadedCards]
+    
+    // Remove duplicates based on ID (prefer Firestore version)
+    const uniqueCards = allCards.reduce((acc, card) => {
+      const existingIndex = acc.findIndex(c => c.id === card.id)
+      if (existingIndex === -1) {
+        acc.push(card)
+      }
+      return acc
+    }, [] as any[])
+
     // Return cards with pagination support for large datasets
     const page = 1 // Could be extracted from query params in the future
     const limit = 300 // Support up to 300 cards per page
     const startIndex = (page - 1) * limit
     const endIndex = startIndex + limit
-    const paginatedCards = uploadedCards.slice(startIndex, endIndex)
+    const paginatedCards = uniqueCards.slice(startIndex, endIndex)
 
-    console.log("Total cards to return:", paginatedCards.length)
+    console.log("Total unique cards to return:", paginatedCards.length)
 
-    // Always return only real uploaded cards, never mock data
     return NextResponse.json({
       success: true,
-      cards: paginatedCards, // Only real uploaded cards
+      cards: paginatedCards,
       count: paginatedCards.length,
-      totalCount: uploadedCards.length,
+      totalCount: uniqueCards.length,
+      sources: {
+        firestore: firestoreCards.length,
+        localStorage: uploadedCards.length,
+        total: uniqueCards.length
+      },
       page: page,
-      totalPages: Math.ceil(uploadedCards.length / limit),
-      hasMore: uploadedCards.length > endIndex,
+      totalPages: Math.ceil(uniqueCards.length / limit),
+      hasMore: uniqueCards.length > endIndex,
     })
   } catch (error) {
     console.error("=== Cards API Error ===")
     console.error("Error:", error)
 
-    // Return empty array on error, never mock data
     return NextResponse.json(
       {
         success: false,
         error: "Failed to fetch cards",
-        cards: [], // Always empty array on error
+        cards: [],
         count: 0,
         totalCount: 0,
       },

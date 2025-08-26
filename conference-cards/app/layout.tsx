@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter, Dela_Gothic_One, Syne, Noto_Sans_TC } from "next/font/google"
 import FloatingDrawButton from "@/components/floating-draw-button"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/contexts/AuthContext"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -48,8 +49,10 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {children}
-          <FloatingDrawButton />
+          <AuthProvider>
+            {children}
+            <FloatingDrawButton />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
