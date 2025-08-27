@@ -4,11 +4,21 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Shuffle, Users, ZoomIn, RotateCcw, Eye } from "lucide-react"
+import { ArrowLeft, Shuffle, Users, ZoomIn, RotateCcw, Eye, Clock, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
+import OptimizedImage from "@/components/optimized-image"
 import CardModal from "@/components/card-modal"
+import { useAuth } from "@/contexts/AuthContext"
+import { 
+  initializeDrawRecord, 
+  canDrawCard, 
+  recordDrawnCard, 
+  formatRemainingTime,
+  DRAW_LIMITS,
+  type DrawRecord 
+} from "@/lib/draw-cache"
 
 interface CardData {
   id: string
@@ -17,6 +27,7 @@ interface CardData {
   frontImageUrl: string
   backImageUrl: string
   createdAt: string
+  userId?: string
 }
 
 interface DrawnCard extends CardData {
@@ -135,12 +146,16 @@ function DrawnInteractiveCard({ card, index, drawOrder, drawnAt, onCardClick }: 
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 rounded-2xl" />
 
             <div className="relative w-full h-full">
-              <Image
+              <OptimizedImage
                 src={card.backImageUrl || "/placeholder.svg"}
                 alt={`${card.name} 封底`}
                 fill
                 className="object-cover rounded-2xl"
                 sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                priority={index < 3}
+                quality={85}
+                placeholder="blur"
+                fallbackSrc="/placeholder.svg"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 rounded-2xl" />
 
@@ -197,12 +212,16 @@ function DrawnInteractiveCard({ card, index, drawOrder, drawnAt, onCardClick }: 
             <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 via-transparent to-primary/10 rounded-2xl" />
 
             <div className="relative w-full h-full">
-              <Image
+              <OptimizedImage
                 src={card.frontImageUrl || "/placeholder.svg"}
                 alt={`${card.name} 封面`}
                 fill
                 className="object-cover rounded-2xl"
                 sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                priority={index < 3}
+                quality={85}
+                placeholder="blur"
+                fallbackSrc="/placeholder.svg"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 rounded-2xl" />
 
@@ -274,6 +293,7 @@ function DrawnInteractiveCard({ card, index, drawOrder, drawnAt, onCardClick }: 
 }
 
 export default function DrawPage() {
+  const { user } = useAuth()
   const [cards, setCards] = useState<CardData[]>([])
   const [loading, setLoading] = useState(true)
   const [drawing, setDrawing] = useState(false)
@@ -285,12 +305,58 @@ export default function DrawPage() {
   const [cardFlipped, setCardFlipped] = useState(false)
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  
+  // 新的混合緩存系統狀態
+  const [drawRecord, setDrawRecord] = useState<DrawRecord | null>(null)
+  const [isInitializing, setIsInitializing] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [remainingCooldown, setRemainingCooldown] = useState<number>(0)
+  
   const router = useRouter()
 
   useEffect(() => {
     fetchCards()
     loadDrawHistory()
   }, [])
+
+  // 初始化抽卡記錄
+  useEffect(() => {
+    if (!user) return
+
+    const initialize = async () => {
+      try {
+        setIsInitializing(true)
+        setError(null)
+        const record = await initializeDrawRecord(user.uid)
+        setDrawRecord(record)
+      } catch (error) {
+        console.error('初始化抽卡記錄失敗:', error)
+        setError('載入抽卡記錄失敗，請重試')
+      } finally {
+        setIsInitializing(false)
+      }
+    }
+
+    initialize()
+  }, [user])
+
+  // 冷卻時間倒計時
+  useEffect(() => {
+    if (!drawRecord) return
+
+    const checkCooldown = () => {
+      const { canDraw, remainingTime } = canDrawCard(drawRecord)
+      if (!canDraw && remainingTime) {
+        setRemainingCooldown(remainingTime)
+      } else {
+        setRemainingCooldown(0)
+      }
+    }
+
+    checkCooldown()
+    const interval = setInterval(checkCooldown, 1000)
+    return () => clearInterval(interval)
+  }, [drawRecord])
 
   const fetchCards = async () => {
     try {
@@ -313,10 +379,24 @@ export default function DrawPage() {
         console.log("Fetched mock cards for draw:", mockCards.length)
       }
 
-      // Combine both API cards and mock cards
-      const allCards = [...apiCards, ...mockCards]
-      console.log("Total cards for draw:", allCards.length)
-      setCards(allCards)
+      // 去重合併：優先使用 API 卡片，避免重複
+      const combinedCards = [...apiCards]
+      
+      // 只添加不重複的 mock 卡片
+      mockCards.forEach(mockCard => {
+        const isDuplicate = apiCards.some(apiCard => 
+          apiCard.id === mockCard.id || 
+          (apiCard.name === mockCard.name && apiCard.position === mockCard.position)
+        )
+        if (!isDuplicate) {
+          combinedCards.push(mockCard)
+        }
+      })
+      
+      console.log("API cards for draw:", apiCards.length)
+      console.log("Mock cards for draw:", mockCards.length) 
+      console.log("Combined cards for draw (after deduplication):", combinedCards.length)
+      setCards(combinedCards)
     } catch (error) {
       console.error("Failed to fetch cards:", error)
       setCards([])
@@ -349,32 +429,75 @@ export default function DrawPage() {
     setTimeout(() => setIsMouseMoving(false), 100)
   }
 
+  // 獲取可抽取的卡片
+  const getAvailableCards = (): CardData[] => {
+    if (!drawRecord) return []
+    
+    return cards.filter(card => {
+      // 排除自己的卡片
+      if (user && card.userId === user.uid) {
+        return false
+      }
+      
+      // 排除已抽過的卡片
+      if (drawRecord.drawnCardIds.includes(card.id)) {
+        return false
+      }
+      
+      return true
+    })
+  }
+
   const drawCard = async () => {
-    if (cards.length === 0 || drawing) return
+    if (!user || !drawRecord) return
+
+    // 檢查是否可以抽卡
+    const { canDraw, reason } = canDrawCard(drawRecord)
+    if (!canDraw) {
+      setError(reason || '無法抽卡')
+      return
+    }
+
+    const availableCards = getAvailableCards()
+    if (availableCards.length === 0) {
+      setError('沒有可抽取的卡片了！')
+      return
+    }
 
     setDrawing(true)
     setDrawnCard(null)
     setCardFlipped(false)
+    setError(null)
 
-    // 抽卡動畫延遲
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      // 抽卡動畫延遲
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
-    // 隨機選擇一張卡片
-    const randomIndex = Math.floor(Math.random() * cards.length)
-    const selectedCard = cards[randomIndex]
+      // 隨機選擇一張卡片
+      const randomIndex = Math.floor(Math.random() * availableCards.length)
+      const selectedCard = availableCards[randomIndex]
 
-    setDrawnCard(selectedCard)
+      // 記錄抽卡到新系統
+      const updatedRecord = await recordDrawnCard(user.uid, selectedCard.id)
+      setDrawRecord(updatedRecord)
+      
+      setDrawnCard(selectedCard)
 
-    // 添加到歷史記錄
-    const newDrawnCard: DrawnCard = {
-      ...selectedCard,
-      drawnAt: new Date().toISOString(),
+      // 同時保持舊的歷史記錄系統（為了 UI 顯示）
+      const newDrawnCard: DrawnCard = {
+        ...selectedCard,
+        drawnAt: new Date().toISOString(),
+      }
+      const newHistory = [newDrawnCard, ...drawHistory].slice(0, 20)
+      setDrawHistory(newHistory)
+      saveDrawHistory(newHistory)
+
+    } catch (error) {
+      console.error('抽卡失敗:', error)
+      setError('抽卡失敗，請重試')
+    } finally {
+      setDrawing(false)
     }
-    const newHistory = [newDrawnCard, ...drawHistory].slice(0, 20) // 保留最近20次
-    setDrawHistory(newHistory)
-    saveDrawHistory(newHistory)
-
-    setDrawing(false)
   }
 
   const resetDraw = () => {
@@ -498,7 +621,15 @@ export default function DrawPage() {
                   {/* 透明磨沙抽卡按鈕 */}
                   <Button
                     onClick={drawCard}
-                    disabled={drawing || cards.length === 0}
+                    disabled={
+                      drawing || 
+                      !user || 
+                      !drawRecord || 
+                      isInitializing ||
+                      getAvailableCards().length === 0 ||
+                      remainingCooldown > 0 ||
+                      (drawRecord && drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS)
+                    }
                     className="relative h-32 w-32 rounded-full bg-white/10 backdrop-blur-md border-2 border-green-400/30 hover:bg-white/15 hover:border-green-400/50  font-bold text-xl shadow-2xl overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed text-green-300"
                     style={{
                       boxShadow:
@@ -639,7 +770,7 @@ export default function DrawPage() {
                       <div className="w-full h-full bg-gray-900/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden relative border border-gray-700/50">
                         <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 via-transparent to-green-400/20 rounded-2xl"></div>
                         <div className="relative w-full h-full">
-                          <Image
+                          <OptimizedImage
                             src={drawnCard.backImageUrl || "/placeholder.svg"}
                             alt={`${drawnCard.name} 封底`}
                             fill
@@ -657,7 +788,7 @@ export default function DrawPage() {
                       <div className="w-full h-full bg-gray-900/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden relative border border-gray-700/50">
                         <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 via-transparent to-green-500/20 rounded-2xl"></div>
                         <div className="relative w-full h-full">
-                          <Image
+                          <OptimizedImage
                             src={drawnCard.frontImageUrl || "/placeholder.svg"}
                             alt={`${drawnCard.name} 封面`}
                             fill
@@ -701,7 +832,7 @@ export default function DrawPage() {
                     textShadow: "0 0 8px #22c55e",
                   }}
                 >
-                  重新抽卡
+                  關閉抽卡
                 </Button>
                 <Button
                   onClick={drawCard}
@@ -833,12 +964,15 @@ export default function DrawPage() {
                           }}
                         >
                           <div className="w-12 h-16 relative flex-shrink-0">
-                            <Image
+                            <OptimizedImage
                               src={card.frontImageUrl || "/placeholder.svg"}
                               alt={card.name}
                               fill
                               className="object-cover rounded"
                               sizes="48px"
+                              priority={false}
+                              quality={75}
+                              lazy={true}
                             />
                           </div>
                           <div className="flex-1">

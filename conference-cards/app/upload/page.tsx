@@ -488,10 +488,10 @@ export default function UploadPage() {
                 type="button"
                 variant="destructive"
                 size="sm"
-                className="absolute -top-2 -right-2 h-7 w-7 rounded-full p-0 shadow-lg"
+                className="absolute -top-3 -right-3 h-10 w-10 rounded-full p-0 shadow-xl hover:shadow-2xl bg-red-500 hover:bg-red-600 border-2 border-white transition-all duration-200 hover:scale-110"
                 onClick={() => clearImage(type)}
               >
-                <X className="h-4 w-4" />
+                <X className="h-6 w-6 text-white font-bold" />
               </Button>
             </div>
             <p className="text-xs font-syne text-muted-foreground">點擊 X 重新選擇</p>

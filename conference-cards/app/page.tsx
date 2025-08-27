@@ -10,6 +10,7 @@ import UserMenu from "@/components/user-menu"
 import { Download, FileImage, Sparkles, Users, Calendar, Shuffle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { HomeCheck } from "@/components/HomeCheck"
+import { useAuth } from "@/contexts/AuthContext"
 
 
 
@@ -75,7 +76,8 @@ function FeatureHighlights() {
       icon: Download,
       title: "下載模板",
       description: "使用專業設計模板製作名片",
-      color: "from-blue-500 to-cyan-500"
+      color: "from-blue-500 to-cyan-500",
+      onClick: () => window.open("https://www.figma.com/design/NSEoYuzHTWzkDqReTYPgDO/2025-UX-%E4%B8%89%E5%88%80%E6%B5%81-%E4%BA%A4%E6%B5%81%E7%A0%94%E8%A8%8E%E5%B9%B4%E6%9C%83?node-id=0-1&p=f&t=Nl51XNjkc5zNICry-0", "_blank")
     },
     {
       icon: Users,
@@ -87,7 +89,8 @@ function FeatureHighlights() {
       icon: Calendar,
       title: "現場抽卡",
       description: "研討會現場抽卡配對交流",
-      color: "from-orange-500 to-red-500"
+      color: "from-orange-500 to-red-500",
+      onClick: () => window.location.href = "/draw"
     }
   ]
 
@@ -101,11 +104,12 @@ function FeatureHighlights() {
       {features.map((feature, index) => (
         <motion.div
           key={feature.title}
-          className="glass-morphism glass-morphism-hover rounded-2xl p-6 text-center group"
+          className={`glass-morphism glass-morphism-hover rounded-2xl p-6 text-center group ${feature.onClick ? 'cursor-pointer' : ''}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.7 + index * 0.1 }}
           whileHover={{ y: -5, scale: 1.02 }}
+          onClick={feature.onClick}
         >
           <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${feature.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
             <feature.icon className="w-8 h-8 text-white" />
@@ -119,6 +123,7 @@ function FeatureHighlights() {
 }
 
 export default function Page() {
+  const { user } = useAuth()
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isMouseMoving, setIsMouseMoving] = useState(false)
   const [showLoading, setShowLoading] = useState(true)
@@ -248,69 +253,11 @@ export default function Page() {
 
           <DynamicSubtitle />
 
-          {/* 下載模板按鈕 */}
-          <motion.div
-            className="mb-12"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-          >
-            <motion.div
-              className="inline-block"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button
-                onClick={handleDownloadTemplate}
-                className="glow-button text-white px-8 py-4 rounded-2xl font-syne text-lg font-semibold h-auto"
-              >
-                <Download className="w-5 h-5 mr-3" />
-                下載名片模板
-              </Button>
-            </motion.div>
-            <motion.p
-              className="text-muted-foreground text-sm mt-3 font-syne"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.2 }}
-            >
-              Figma 設計模板，幫助您製作專業名片
-            </motion.p>
-          </motion.div>
         </motion.div>
 
         {/* 功能特色 */}
         <FeatureHighlights />
 
-        {/* 抽卡按鈕 */}
-        <motion.div
-          className="text-center mb-12"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1.0 }}
-        >
-          <motion.div
-            className="inline-block"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button
-              onClick={() => setShowDrawModal(true)}
-              className="bg-gradient-to-r from-secondary to-accent text-white px-8 py-4 rounded-2xl font-syne text-lg font-semibold h-auto shadow-lg hover:shadow-xl"
-            >
-              <Shuffle className="w-5 h-5 mr-3" />
-              現場抽卡配對
-            </Button>
-          </motion.div>
-          <motion.p
-            className="text-muted-foreground text-sm mt-3 font-syne"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.2 }}
-          >
-            研討會現場進行抽卡配對，促進參與者交流
-          </motion.p>
-        </motion.div>
 
         {/* 卡片網格 */}
         <Suspense fallback={<CardGridSkeleton />}>
@@ -323,7 +270,8 @@ export default function Page() {
       <DrawCard 
         cards={cards} 
         isOpen={showDrawModal} 
-        onClose={() => setShowDrawModal(false)} 
+        onClose={() => setShowDrawModal(false)}
+        currentUserId={user?.uid}
       />
     </motion.div>
     </main>

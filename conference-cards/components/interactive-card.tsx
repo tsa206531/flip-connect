@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import Image from "next/image"
+import CardImage from "./card-image"
 import { ZoomIn, RotateCcw, Eye } from "lucide-react"
 
 interface Card {
@@ -126,12 +126,11 @@ export default function InteractiveCard({ card, index, onCardClick }: Interactiv
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 rounded-2xl" />
 
             <div className="relative w-full h-full">
-              <Image
+              <CardImage
                 src={card.backImageUrl || "/placeholder.svg"}
                 alt={`${card.name} 封底`}
-                fill
-                className="object-cover rounded-2xl"
-                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                className="rounded-2xl"
+                priority={index < 3} // 前3張卡片優先載入
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 rounded-2xl" />
 
@@ -173,12 +172,12 @@ export default function InteractiveCard({ card, index, onCardClick }: Interactiv
             <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 via-transparent to-primary/10 rounded-2xl" />
 
             <div className="relative w-full h-full">
-              <Image
+              <CardImage
                 src={card.frontImageUrl || "/placeholder.svg"}
                 alt={`${card.name} 封面`}
-                fill
-                className="object-cover rounded-2xl"
-                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                className="rounded-2xl"
+                priority={index < 3} // 前3張卡片優先載入
+                isFlipped={!isFlipped}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 rounded-2xl" />
 

@@ -2,10 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Shuffle, Users, Sparkles, ArrowLeft, RefreshCw } from "lucide-react"
+import { Shuffle, Users, Sparkles, ArrowLeft, Clock, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card as UICard, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
+import { 
+  initializeDrawRecord, 
+  canDrawCard, 
+  recordDrawnCard, 
+  formatRemainingTime,
+  DRAW_LIMITS,
+  type DrawRecord 
+} from "@/lib/draw-cache"
 
 interface CardData {
   id: string
@@ -14,52 +22,126 @@ interface CardData {
   frontImageUrl: string
   backImageUrl: string
   createdAt: string
+  userId?: string
 }
 
 interface DrawCardProps {
   cards: CardData[]
   isOpen: boolean
   onClose: () => void
+  currentUserId?: string
 }
 
-export default function DrawCard({ cards, isOpen, onClose }: DrawCardProps) {
+export default function DrawCard({ cards, isOpen, onClose, currentUserId }: DrawCardProps) {
   const [isDrawing, setIsDrawing] = useState(false)
   const [drawnCard, setDrawnCard] = useState<CardData | null>(null)
-  const [drawnCards, setDrawnCards] = useState<CardData[]>([])
-  const [remainingCards, setRemainingCards] = useState<CardData[]>(cards)
   const [showResult, setShowResult] = useState(false)
+  const [drawRecord, setDrawRecord] = useState<DrawRecord | null>(null)
+  const [isInitializing, setIsInitializing] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [remainingCooldown, setRemainingCooldown] = useState<number>(0)
 
+  // 初始化抽卡記錄
   useEffect(() => {
-    setRemainingCards(cards)
-  }, [cards])
+    if (!currentUserId || !isOpen) return
 
-  const drawRandomCard = () => {
-    if (remainingCards.length === 0) {
-      alert("所有卡片都已抽完！")
+    const initialize = async () => {
+      try {
+        setIsInitializing(true)
+        setError(null)
+        const record = await initializeDrawRecord(currentUserId)
+        setDrawRecord(record)
+      } catch (error) {
+        console.error('初始化抽卡記錄失敗:', error)
+        setError('載入抽卡記錄失敗，請重試')
+      } finally {
+        setIsInitializing(false)
+      }
+    }
+
+    initialize()
+  }, [currentUserId, isOpen])
+
+  // 冷卻時間倒計時
+  useEffect(() => {
+    if (!drawRecord) return
+
+    const checkCooldown = () => {
+      const { canDraw, remainingTime } = canDrawCard(drawRecord)
+      if (!canDraw && remainingTime) {
+        setRemainingCooldown(remainingTime)
+      } else {
+        setRemainingCooldown(0)
+      }
+    }
+
+    checkCooldown()
+    const interval = setInterval(checkCooldown, 1000)
+    return () => clearInterval(interval)
+  }, [drawRecord])
+
+  // 獲取可抽取的卡片
+  const getAvailableCards = (): CardData[] => {
+    if (!drawRecord) return []
+    
+    return cards.filter(card => {
+      // 排除自己的卡片
+      if (currentUserId && card.userId === currentUserId) {
+        return false
+      }
+      
+      // 排除已抽過的卡片
+      if (drawRecord.drawnCardIds.includes(card.id)) {
+        return false
+      }
+      
+      return true
+    })
+  }
+
+  const drawRandomCard = async () => {
+    if (!currentUserId || !drawRecord) return
+
+    // 檢查是否可以抽卡
+    const { canDraw, reason } = canDrawCard(drawRecord)
+    if (!canDraw) {
+      setError(reason || '無法抽卡')
+      return
+    }
+
+    const availableCards = getAvailableCards()
+    if (availableCards.length === 0) {
+      setError('沒有可抽取的卡片了！')
       return
     }
 
     setIsDrawing(true)
     setShowResult(false)
+    setError(null)
 
-    // 模擬抽卡動畫
-    setTimeout(() => {
-      const randomIndex = Math.floor(Math.random() * remainingCards.length)
-      const selectedCard = remainingCards[randomIndex]
-      
-      setDrawnCard(selectedCard)
-      setDrawnCards(prev => [...prev, selectedCard])
-      setRemainingCards(prev => prev.filter((_, index) => index !== randomIndex))
-      setShowResult(true)
+    try {
+      // 模擬抽卡動畫
+      setTimeout(async () => {
+        try {
+          const randomIndex = Math.floor(Math.random() * availableCards.length)
+          const selectedCard = availableCards[randomIndex]
+          
+          // 記錄抽卡
+          const updatedRecord = await recordDrawnCard(currentUserId, selectedCard.id)
+          setDrawRecord(updatedRecord)
+          setDrawnCard(selectedCard)
+          setShowResult(true)
+        } catch (error) {
+          console.error('記錄抽卡失敗:', error)
+          setError('抽卡記錄失敗，請重試')
+        } finally {
+          setIsDrawing(false)
+        }
+      }, 2000)
+    } catch (error) {
       setIsDrawing(false)
-    }, 2000)
-  }
-
-  const resetDraw = () => {
-    setDrawnCards([])
-    setRemainingCards(cards)
-    setDrawnCard(null)
-    setShowResult(false)
+      setError('抽卡失敗，請重試')
+    }
   }
 
   const getCardAnimation = (index: number) => ({
@@ -69,6 +151,16 @@ export default function DrawCard({ cards, isOpen, onClose }: DrawCardProps) {
   })
 
   if (!isOpen) return null
+
+  // 計算統計資訊
+  const availableCards = getAvailableCards()
+  const stats = drawRecord ? {
+    totalCards: cards.length,
+    ownCards: currentUserId ? cards.filter(card => card.userId === currentUserId).length : 0,
+    availableCards: availableCards.length,
+    drawnCount: drawRecord.drawCount,
+    remainingDraws: DRAW_LIMITS.MAX_DRAWS - drawRecord.drawCount
+  } : null
 
   return (
     <motion.div
@@ -116,6 +208,76 @@ export default function DrawCard({ cards, isOpen, onClose }: DrawCardProps) {
           </p>
         </motion.div>
 
+        {/* 載入狀態 */}
+        {isInitializing && (
+          <motion.div 
+            className="text-center py-12"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div className="animate-spin w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-6"></div>
+            <p className="text-muted-foreground text-lg">載入抽卡記錄中...</p>
+          </motion.div>
+        )}
+
+        {/* 錯誤提示 */}
+        {error && (
+          <motion.div 
+            className="mb-8 p-6 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center max-w-2xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <AlertCircle className="w-6 h-6 text-red-400 mr-4 flex-shrink-0" />
+            <p className="text-red-400">{error}</p>
+          </motion.div>
+        )}
+
+        {/* 統計資訊 */}
+        {stats && !isInitializing && (
+          <motion.div 
+            className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 max-w-4xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className="text-center p-4 glass-morphism rounded-2xl">
+              <div className="text-3xl font-bold text-blue-400 mb-1">{stats.availableCards}</div>
+              <div className="text-sm text-muted-foreground">可抽取</div>
+            </div>
+            <div className="text-center p-4 glass-morphism rounded-2xl">
+              <div className="text-3xl font-bold text-green-400 mb-1">{stats.drawnCount}</div>
+              <div className="text-sm text-muted-foreground">已抽取</div>
+            </div>
+            <div className="text-center p-4 glass-morphism rounded-2xl">
+              <div className="text-3xl font-bold text-orange-400 mb-1">{stats.remainingDraws}</div>
+              <div className="text-sm text-muted-foreground">剩餘次數</div>
+            </div>
+            <div className="text-center p-4 glass-morphism rounded-2xl">
+              <div className="text-3xl font-bold text-purple-400 mb-1">{DRAW_LIMITS.COOLDOWN_MINUTES}</div>
+              <div className="text-sm text-muted-foreground">冷卻(分鐘)</div>
+            </div>
+            <div className="text-center p-4 glass-morphism rounded-2xl">
+              <div className="text-3xl font-bold text-pink-400 mb-1">{DRAW_LIMITS.MAX_DRAWS}</div>
+              <div className="text-sm text-muted-foreground">每日上限</div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 冷卻時間提示 */}
+        {remainingCooldown > 0 && (
+          <motion.div 
+            className="mb-8 p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl flex items-center max-w-2xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Clock className="w-6 h-6 text-yellow-400 mr-4 flex-shrink-0" />
+            <div>
+              <p className="text-yellow-400 font-medium mb-1">冷卻時間中</p>
+              <p className="text-yellow-400/70 text-sm">還需等待 {formatRemainingTime(remainingCooldown)}</p>
+            </div>
+          </motion.div>
+        )}
+
         {/* 統計資訊 */}
         <motion.div
           className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
@@ -155,26 +317,49 @@ export default function DrawCard({ cards, isOpen, onClose }: DrawCardProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.6 }}
         >
-          <Button
-            onClick={drawRandomCard}
-            disabled={isDrawing || remainingCards.length === 0}
-            className="glow-button text-white px-12 py-6 rounded-2xl font-syne text-xl font-semibold h-auto"
-            size="lg"
-          >
-            {isDrawing ? (
-              <>
-                <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent mr-3" />
-                抽卡中...
-              </>
-            ) : (
-              <>
-                <Shuffle className="w-6 h-6 mr-3" />
-                開始抽卡
-              </>
-            )}
-          </Button>
+          {!isInitializing && drawRecord && (
+            <Button
+              onClick={drawRandomCard}
+              disabled={
+                isDrawing || 
+                !drawRecord || 
+                availableCards.length === 0 || 
+                remainingCooldown > 0 ||
+                drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS
+              }
+              className="glow-button text-white px-12 py-6 rounded-2xl font-syne text-xl font-semibold h-auto"
+              size="lg"
+            >
+              {isDrawing ? (
+                <>
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent mr-3" />
+                  抽卡中...
+                </>
+              ) : remainingCooldown > 0 ? (
+                <>
+                  <Clock className="w-6 h-6 mr-3" />
+                  冷卻中 ({formatRemainingTime(remainingCooldown)})
+                </>
+              ) : drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS ? (
+                <>
+                  <AlertCircle className="w-6 h-6 mr-3" />
+                  已達上限
+                </>
+              ) : availableCards.length === 0 ? (
+                <>
+                  <Users className="w-6 h-6 mr-3" />
+                  無可抽卡片
+                </>
+              ) : (
+                <>
+                  <Shuffle className="w-6 h-6 mr-3" />
+                  {showResult ? '再抽一張' : '開始抽卡'}
+                </>
+              )}
+            </Button>
+          )}
 
-          {remainingCards.length === 0 && (
+          {availableCards.length === 0 && !isInitializing && drawRecord && (
             <motion.div
               className="mt-6"
               initial={{ opacity: 0 }}

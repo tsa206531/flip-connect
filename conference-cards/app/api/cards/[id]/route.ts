@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { doc, deleteDoc, getDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 // Helper function to safely access global storage
 function getCardsStorage(): any[] {
@@ -52,8 +54,31 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     let currentCards: any[] = []
     let cardToDelete: any = null
     let finalLength = 0
+    let firestoreDeleted = false
 
+    // Step 1: Try to delete from Firestore first
     try {
+      console.log("Step 1: Attempting to delete from Firestore...")
+      const cardRef = doc(db, 'cards', params.id)
+      
+      // Check if document exists in Firestore
+      const cardSnap = await getDoc(cardRef)
+      if (cardSnap.exists()) {
+        await deleteDoc(cardRef)
+        console.log("✓ Card deleted from Firestore successfully")
+        firestoreDeleted = true
+      } else {
+        console.log("⚠ Card not found in Firestore, checking local storage...")
+      }
+    } catch (firestoreError) {
+      console.error("✗ Firestore deletion failed:", firestoreError)
+      // Continue to local storage deletion even if Firestore fails
+    }
+
+    // Step 2: Delete from local storage
+    try {
+      console.log("Step 2: Attempting to delete from local storage...")
+      
       // Get current cards
       currentCards = getCardsStorage()
       const initialLength = currentCards.length
@@ -61,44 +86,60 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       // Find the card to delete
       cardToDelete = currentCards.find((card) => card.id === params.id)
 
-      if (!cardToDelete) {
+      if (!cardToDelete && !firestoreDeleted) {
         return NextResponse.json(
           {
             success: false,
-            error: "Card not found",
+            error: "Card not found in either Firestore or local storage",
           },
           { status: 404 },
         )
       }
 
-      // Remove card from storage
-      const updatedCards = currentCards.filter((card) => card.id !== params.id)
-      finalLength = updatedCards.length
+      if (cardToDelete) {
+        // Remove card from storage
+        const updatedCards = currentCards.filter((card) => card.id !== params.id)
+        finalLength = updatedCards.length
 
-      // Save updated cards
-      setCardsStorage(updatedCards)
+        // Save updated cards
+        setCardsStorage(updatedCards)
 
-      console.log(`Cards before deletion: ${initialLength}`)
-      console.log(`Cards after deletion: ${finalLength}`)
+        console.log(`✓ Local storage: Cards before deletion: ${initialLength}`)
+        console.log(`✓ Local storage: Cards after deletion: ${finalLength}`)
+      } else {
+        console.log("⚠ Card not found in local storage")
+        finalLength = currentCards.length
+      }
     } catch (storageError) {
-      console.error("Storage operation failed:", storageError)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Storage operation failed",
-        },
-        { status: 500 },
-      )
+      console.error("✗ Local storage operation failed:", storageError)
+      
+      // If Firestore deletion succeeded but local storage failed, still return success
+      if (firestoreDeleted) {
+        console.log("Firestore deletion succeeded, ignoring local storage error")
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Storage operation failed",
+          },
+          { status: 500 },
+        )
+      }
     }
 
-    // Note: Blob cleanup is not implemented in this simplified version
-    // In production, you would clean up any external storage here
+    // Step 3: Return success response
+    const deletionSources = []
+    if (firestoreDeleted) deletionSources.push("Firestore")
+    if (cardToDelete) deletionSources.push("Local Storage")
+
+    console.log(`✓ Card deleted successfully from: ${deletionSources.join(", ")}`)
 
     return NextResponse.json({
       success: true,
-      message: "Card deleted successfully",
+      message: `Card deleted successfully from ${deletionSources.join(" and ")}`,
       deletedId: params.id,
       remainingCards: finalLength,
+      deletedFrom: deletionSources
     })
   } catch (error) {
     console.error("=== Delete Single Card API Error ===")
