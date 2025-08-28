@@ -8,6 +8,7 @@ export interface DrawRecord {
   drawCount: number
   lastDrawTime: number
   lastSyncTime: number
+  drawnCardTimestamps?: { [cardId: string]: number } // 新增：記錄每張卡片的抽取時間
 }
 
 // localStorage 鍵名
@@ -70,7 +71,8 @@ export async function loadFirestoreDrawRecord(userId: string): Promise<DrawRecor
         drawnCardIds: data.drawnCardIds || [],
         drawCount: data.drawCount || 0,
         lastDrawTime: data.lastDrawTime || 0,
-        lastSyncTime: Date.now()
+        lastSyncTime: Date.now(),
+        drawnCardTimestamps: data.drawnCardTimestamps || {}
       }
     }
     
@@ -92,6 +94,7 @@ export async function saveFirestoreDrawRecord(record: DrawRecord): Promise<void>
       drawnCardIds: record.drawnCardIds,
       drawCount: record.drawCount,
       lastDrawTime: record.lastDrawTime,
+      drawnCardTimestamps: record.drawnCardTimestamps || {},
       updatedAt: Date.now()
     }, { merge: true })
     
@@ -134,12 +137,19 @@ export function mergeDrawRecords(local: DrawRecord | null, remote: DrawRecord | 
       ...remote.drawnCardIds
     ]))
     
+    // 合併時間戳
+    const mergedTimestamps = {
+      ...remote.drawnCardTimestamps,
+      ...local.drawnCardTimestamps
+    }
+    
     return {
       userId,
       drawnCardIds: mergedCardIds,
       drawCount: Math.max(local.drawCount, remote.drawCount),
       lastDrawTime: Math.max(local.lastDrawTime, remote.lastDrawTime),
-      lastSyncTime: Date.now()
+      lastSyncTime: Date.now(),
+      drawnCardTimestamps: mergedTimestamps
     }
   }
   
@@ -232,16 +242,23 @@ export async function recordDrawnCard(userId: string, cardId: string): Promise<D
       drawnCardIds: [],
       drawCount: 0,
       lastDrawTime: 0,
-      lastSyncTime: Date.now()
+      lastSyncTime: Date.now(),
+      drawnCardTimestamps: {}
     }
+    
+    const now = Date.now()
     
     // 2. 更新記錄
     const updatedRecord: DrawRecord = {
       ...currentRecord,
       drawnCardIds: [...currentRecord.drawnCardIds, cardId],
       drawCount: currentRecord.drawCount + 1,
-      lastDrawTime: Date.now(),
-      lastSyncTime: Date.now()
+      lastDrawTime: now,
+      lastSyncTime: now,
+      drawnCardTimestamps: {
+        ...currentRecord.drawnCardTimestamps,
+        [cardId]: now
+      }
     }
     
     // 3. 儲存到本地

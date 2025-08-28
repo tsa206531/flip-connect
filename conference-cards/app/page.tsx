@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button"
 import MatrixLoading from "@/components/matrix-loading"
 import DrawCard from "@/components/draw-card"
 import UserMenu from "@/components/user-menu"
-import { Download, FileImage, Sparkles, Users, Calendar, Shuffle } from "lucide-react"
+import { Download, FileImage, Sparkles, Users, Calendar, Shuffle, Eye } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { HomeCheck } from "@/components/HomeCheck"
 import { useAuth } from "@/contexts/AuthContext"
+import CardModal from "@/components/card-modal"
 
 
 
@@ -24,6 +25,7 @@ interface Card {
   frontImageUrl: string
   backImageUrl: string
   createdAt: string
+  userId?: string  // 添加 userId 字段来识别卡片所有者
 }
 
 function DynamicSubtitle() {
@@ -70,7 +72,7 @@ function DynamicSubtitle() {
   )
 }
 
-function FeatureHighlights() {
+function FeatureHighlights({ onViewMyCard }: { onViewMyCard: () => void }) {
   const features = [
     {
       icon: Download,
@@ -80,10 +82,11 @@ function FeatureHighlights() {
       onClick: () => window.open("https://www.figma.com/design/NSEoYuzHTWzkDqReTYPgDO/2025-UX-%E4%B8%89%E5%88%80%E6%B5%81-%E4%BA%A4%E6%B5%81%E7%A0%94%E8%A8%8E%E5%B9%B4%E6%9C%83?node-id=0-1&p=f&t=Nl51XNjkc5zNICry-0", "_blank")
     },
     {
-      icon: Users,
-      title: "認識參與者",
-      description: "提前了解研討會參與者",
-      color: "from-green-500 to-emerald-500"
+      icon: Eye,
+      title: "檢視我的卡片",
+      description: "查看您上傳的名片內容",
+      color: "from-green-500 to-emerald-500",
+      onClick: onViewMyCard
     },
     {
       icon: Calendar,
@@ -129,6 +132,8 @@ export default function Page() {
   const [showLoading, setShowLoading] = useState(true)
   const [showDrawModal, setShowDrawModal] = useState(false)
   const [cards, setCards] = useState<Card[]>([])
+  const [showUserCardModal, setShowUserCardModal] = useState(false)
+  const [selectedUserCard, setSelectedUserCard] = useState<Card | null>(null)
 
   const handleLoadingComplete = () => {
     setShowLoading(false)
@@ -149,6 +154,39 @@ export default function Page() {
     link.href = "/templates/card-template.fig"
     link.download = "UX3研討會名片模板.fig"
     link.click()
+  }
+
+  const handleViewMyCard = () => {
+    if (!user) {
+      // 如果用户未登录，可以提示登录
+      alert("請先登入以查看您的名片")
+      return
+    }
+
+    // 找到使用者所有自己的卡片，並取最新一張
+    const userCards = cards.filter(card => card.userId === user.uid)
+
+    if (userCards.length > 0) {
+      const parseTime = (v: any) => {
+        try {
+          if (!v) return 0
+          // 兼容字串/時間戳/Date
+          if (typeof v === 'string') return new Date(v).getTime() || 0
+          if (typeof v === 'number') return v
+          if (typeof v?.toDate === 'function') return v.toDate().getTime()
+          if (v instanceof Date) return v.getTime()
+          return 0
+        } catch { return 0 }
+      }
+
+      const latestUserCard = [...userCards].sort((a, b) => parseTime(b.createdAt as any) - parseTime(a.createdAt as any))[0]
+
+      setSelectedUserCard(latestUserCard)
+      setShowUserCardModal(true)
+    } else {
+      // 如果用户还没有上传卡片
+      alert("您還沒有上傳名片，請先上傳您的名片")
+    }
   }
 
   if (showLoading) {
@@ -256,7 +294,7 @@ export default function Page() {
         </motion.div>
 
         {/* 功能特色 */}
-        <FeatureHighlights />
+        <FeatureHighlights onViewMyCard={handleViewMyCard} />
 
 
         {/* 卡片網格 */}
@@ -272,6 +310,16 @@ export default function Page() {
         isOpen={showDrawModal} 
         onClose={() => setShowDrawModal(false)}
         currentUserId={user?.uid}
+      />
+
+      {/* 用户卡片查看模態框 */}
+      <CardModal 
+        card={selectedUserCard} 
+        isOpen={showUserCardModal} 
+        onClose={() => {
+          setShowUserCardModal(false)
+          setSelectedUserCard(null)
+        }} 
       />
     </motion.div>
     </main>

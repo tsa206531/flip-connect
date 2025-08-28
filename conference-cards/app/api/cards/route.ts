@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getCardsFromFirestore } from "@/lib/firestore"
+import { db } from "@/lib/firebase"
 
 // Helper function to safely access global storage
 function getCardsStorage(): any[] {
@@ -57,6 +58,7 @@ export async function GET() {
       const cards = await getCardsFromFirestore()
       firestoreCards = cards.map(card => ({
         id: card.id,
+        userId: (card as any).userId, // 將 userId 一併返回
         name: card.name,
         position: card.position,
         frontImageUrl: card.frontImageUrl,
@@ -141,28 +143,67 @@ export async function GET() {
 
 export async function DELETE() {
   try {
-    console.log("=== Delete Cards API Called ===")
+    console.log("=== Delete All Cards API Called ===")
 
-    let deletedCount = 0
+    let localDeletedCount = 0
+    let firestoreDeletedCount = 0
 
-    // Clear uploaded cards safely
+    // Step 1: Clear uploaded cards from local storage
     try {
       const currentCards = getCardsStorage()
-      deletedCount = currentCards.length
+      localDeletedCount = currentCards.length
       setCardsStorage([])
-      console.log(`Cleared ${deletedCount} uploaded cards`)
+      console.log(`✓ Cleared ${localDeletedCount} cards from local storage`)
     } catch (storageError) {
-      console.warn("Storage clear failed:", storageError)
-      deletedCount = 0
+      console.warn("✗ Local storage clear failed:", storageError)
+      localDeletedCount = 0
     }
+
+    // Step 2: Clear all cards from Firestore
+    try {
+      console.log("Attempting to clear all cards from Firestore...")
+      const firestoreCards = await getCardsFromFirestore()
+      firestoreDeletedCount = firestoreCards.length
+      
+      if (firestoreDeletedCount > 0) {
+        // Import necessary Firestore functions
+        const { collection, getDocs, deleteDoc, doc } = await import('firebase/firestore')
+        
+        // Get all cards from Firestore
+        const cardsRef = collection(db, 'cards')
+        const querySnapshot = await getDocs(cardsRef)
+        
+        // Delete each card
+        const deletePromises = querySnapshot.docs.map(cardDoc => 
+          deleteDoc(doc(db, 'cards', cardDoc.id))
+        )
+        
+        await Promise.all(deletePromises)
+        console.log(`✓ Cleared ${firestoreDeletedCount} cards from Firestore`)
+      } else {
+        console.log("No cards found in Firestore to delete")
+      }
+    } catch (firestoreError) {
+      console.error("✗ Firestore clear failed:", firestoreError)
+      // Don't fail the entire operation if Firestore fails
+    }
+
+    const totalDeleted = localDeletedCount + firestoreDeletedCount
+    const sources = []
+    if (localDeletedCount > 0) sources.push(`${localDeletedCount} from local storage`)
+    if (firestoreDeletedCount > 0) sources.push(`${firestoreDeletedCount} from Firestore`)
 
     return NextResponse.json({
       success: true,
-      message: `All ${deletedCount} uploaded cards deleted`,
-      deletedCount: deletedCount,
+      message: `All cards deleted: ${sources.join(', ')}`,
+      deletedCount: totalDeleted,
+      breakdown: {
+        localStorage: localDeletedCount,
+        firestore: firestoreDeletedCount
+      }
     })
   } catch (error) {
-    console.error("=== Delete Cards API Error ===")
+    console.error("=== Delete All Cards API Error ===")
     console.error("Error:", error)
 
     return NextResponse.json(

@@ -238,6 +238,7 @@ export async function POST(request: NextRequest) {
     try {
       cardData = {
         id: cardId,
+        userId: userId, // 保存 userId 到本地備援資料
         name: name.trim(),
         position: position.trim(),
         frontImageUrl,
@@ -309,6 +310,7 @@ export async function POST(request: NextRequest) {
         success: true,
         card: {
           id: cardData.id,
+          userId: cardData.userId,
           name: cardData.name,
           position: cardData.position,
           createdAt: cardData.createdAt,

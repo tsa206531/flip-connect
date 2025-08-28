@@ -7,6 +7,7 @@ import InitialEmptyState from "./initial-empty-state"
 import CardModal from "./card-modal"
 import { motion, AnimatePresence } from "framer-motion"
 import { Users, Calendar, Sparkles } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 
 
@@ -20,6 +21,7 @@ interface Card {
   frontImageUrl: string
   backImageUrl: string
   createdAt: string
+  userId?: string  // 添加 userId 字段来识别卡片所有者
 }
 
 interface CardGridProps {
@@ -27,7 +29,9 @@ interface CardGridProps {
 }
 
 export default function CardGrid({ onCardsLoaded }: CardGridProps) {
+  const { user } = useAuth()
   const [allCards, setAllCards] = useState<Card[]>([])
+  const [sortedCards, setSortedCards] = useState<Card[]>([]) // 保存排序后的卡片，避免重复排序
   const [displayedCards, setDisplayedCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -39,6 +43,34 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
   const INITIAL_LOAD = 8  // 初始載入8張
   const LOAD_MORE = 4     // 每次載入4張
   const MAX_CARDS = 20    // 最多20張
+
+  // 排序卡片：用户自己的卡片在第二位开始，其他卡片随机排列
+  const sortCards = (cards: Card[]) => {
+    if (!user) {
+      // 如果用户未登录，随机排列所有卡片
+      return [...cards].sort(() => Math.random() - 0.5)
+    }
+
+    const userCards: Card[] = []
+    const otherCards: Card[] = []
+
+    // 分离用户自己的卡片和其他卡片
+    cards.forEach(card => {
+      // 检查卡片是否属于当前用户（通过 userId 字段或其他标识）
+      if ((card as any).userId === user.uid) {
+        userCards.push(card)
+      } else {
+        otherCards.push(card)
+      }
+    })
+
+    // 随机排列其他用户的卡片
+    const shuffledOtherCards = [...otherCards].sort(() => Math.random() - 0.5)
+
+    // 返回排序后的卡片：用户卡片在前，其他卡片随机在后
+    // 注意：第一张位置会被"上传名片"占据，所以这里的顺序会从第二张开始显示
+    return [...userCards, ...shuffledOtherCards]
+  }
 
   useEffect(() => {
     fetchCards()
@@ -91,17 +123,26 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
       
       // 限制最大卡片數量
       const limitedCards = combinedCards.slice(0, MAX_CARDS)
-      
       setAllCards(limitedCards)
       
+      // 只在初始加载或卡片数量变化时重新排序
+      const needsResorting = sortedCards.length === 0 || sortedCards.length !== limitedCards.length
+      let finalSortedCards = sortedCards
+      
+      if (needsResorting) {
+        // 应用排序：用户卡片在前，其他卡片随机排列
+        finalSortedCards = sortCards(limitedCards)
+        setSortedCards(finalSortedCards)
+      }
+      
       // 初始只顯示前8張
-      const initialCards = limitedCards.slice(0, INITIAL_LOAD)
+      const initialCards = finalSortedCards.slice(0, INITIAL_LOAD)
       setDisplayedCards(initialCards)
       
       // 檢查是否還有更多卡片
-      setHasMore(limitedCards.length > INITIAL_LOAD)
+      setHasMore(finalSortedCards.length > INITIAL_LOAD)
       
-      onCardsLoaded?.(limitedCards)
+      onCardsLoaded?.(finalSortedCards)
     } catch (error) {
       console.error("Failed to fetch cards:", error)
       setAllCards([])
@@ -115,6 +156,7 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
 
   const refreshCards = () => {
     setLoading(true)
+    setSortedCards([]) // 重置排序状态，强制重新排序
     fetchCards()
   }
 
@@ -126,11 +168,11 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
     // 模擬載入延遲，提供更好的用戶體驗
     setTimeout(() => {
       const currentCount = displayedCards.length
-      const nextBatch = allCards.slice(currentCount, currentCount + LOAD_MORE)
+      const nextBatch = sortedCards.slice(currentCount, currentCount + LOAD_MORE)
       const newDisplayedCards = [...displayedCards, ...nextBatch]
       
       setDisplayedCards(newDisplayedCards)
-      setHasMore(newDisplayedCards.length < allCards.length)
+      setHasMore(newDisplayedCards.length < sortedCards.length)
       setLoadingMore(false)
     }, 500)
   }
@@ -171,7 +213,7 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [loadingMore, hasMore, displayedCards.length, allCards.length])
+  }, [loadingMore, hasMore, displayedCards.length, sortedCards.length])
 
   if (loading) {
     return (
@@ -309,10 +351,10 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
           </div>
           
           {/* 載入進度提示 */}
-          {allCards.length > INITIAL_LOAD && (
+          {sortedCards.length > INITIAL_LOAD && (
             <div className="text-xs text-muted-foreground/70 font-syne">
               {hasMore ? (
-                <span>顯示 {displayedCards.length} / {allCards.length} 張卡片 • 向下滾動載入更多</span>
+                <span>顯示 {displayedCards.length} / {sortedCards.length} 張卡片 • 向下滾動載入更多</span>
               ) : (
                 <span>已顯示全部 {displayedCards.length} 張卡片</span>
               )}

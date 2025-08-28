@@ -299,12 +299,12 @@ export default function DrawPage() {
   const [drawing, setDrawing] = useState(false)
   const [drawnCard, setDrawnCard] = useState<CardData | null>(null)
   const [drawHistory, setDrawHistory] = useState<DrawnCard[]>([])
-  const [showHistory, setShowHistory] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isMouseMoving, setIsMouseMoving] = useState(false)
   const [cardFlipped, setCardFlipped] = useState(false)
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [drawDisabled, setDrawDisabled] = useState(false)
   
   // 新的混合緩存系統狀態
   const [drawRecord, setDrawRecord] = useState<DrawRecord | null>(null)
@@ -317,7 +317,30 @@ export default function DrawPage() {
   useEffect(() => {
     fetchCards()
     loadDrawHistory()
+
+    // 讀取後台抽卡開關
+    const fetchToggle = async () => {
+      try {
+        const res = await fetch('/api/admin/draw-toggle', { cache: 'no-store' })
+        const data = await res.json()
+        setDrawDisabled(data && data.enabled === false)
+      } catch {
+        setDrawDisabled(false)
+      }
+    }
+    fetchToggle()
+    
+    // 每 10 秒輪詢一次，保持狀態同步
+    const id = setInterval(fetchToggle, 10000)
+    return () => clearInterval(id)
   }, [])
+
+  // 當 cards 載入完成且有 drawRecord 時，重建歷史記錄
+  useEffect(() => {
+    if (cards.length > 0 && drawRecord && drawRecord.drawnCardIds.length > 0) {
+      rebuildDrawHistoryFromFirestore(drawRecord.drawnCardIds)
+    }
+  }, [cards, drawRecord])
 
   // 初始化抽卡記錄
   useEffect(() => {
@@ -329,6 +352,11 @@ export default function DrawPage() {
         setError(null)
         const record = await initializeDrawRecord(user.uid)
         setDrawRecord(record)
+        
+        // 從 Firestore 的 drawnCardIds 重建 drawHistory
+        if (record.drawnCardIds.length > 0) {
+          await rebuildDrawHistoryFromFirestore(record.drawnCardIds)
+        }
       } catch (error) {
         console.error('初始化抽卡記錄失敗:', error)
         setError('載入抽卡記錄失敗，請重試')
@@ -420,6 +448,64 @@ export default function DrawPage() {
     localStorage.setItem("drawHistory", JSON.stringify(history))
   }
 
+  // 從 Firestore 的 drawnCardIds 重建 drawHistory
+  const rebuildDrawHistoryFromFirestore = async (drawnCardIds: string[]) => {
+    try {
+      console.log('=== 重建抽卡歷史 ===')
+      console.log('要重建的卡片ID:', drawnCardIds)
+      console.log('可用的卡片總數:', cards.length)
+      console.log('drawRecord:', drawRecord)
+      
+      // 確保 cards 已載入
+      if (cards.length === 0) {
+        console.log('等待卡片資料載入...')
+        return
+      }
+      
+      // 根據 drawnCardIds 找到對應的卡片資料
+      const drawnCards: DrawnCard[] = []
+      const notFoundIds: string[] = []
+      
+      for (const cardId of drawnCardIds) {
+        const card = cards.find(c => c.id === cardId)
+        if (card) {
+          // 使用記錄的抽卡時間，如果沒有則使用當前時間
+          const drawnAt = drawRecord?.drawnCardTimestamps?.[cardId] 
+            ? new Date(drawRecord.drawnCardTimestamps[cardId]).toISOString()
+            : new Date().toISOString()
+            
+          drawnCards.push({
+            ...card,
+            drawnAt
+          })
+          console.log(`✓ 找到卡片: ${cardId} - ${card.name} (抽取時間: ${drawnAt})`)
+        } else {
+          notFoundIds.push(cardId)
+          console.warn(`✗ 找不到卡片ID: ${cardId}`)
+        }
+      }
+      
+      console.log('成功重建的卡片數量:', drawnCards.length)
+      console.log('找不到的卡片ID:', notFoundIds)
+      
+      if (drawnCards.length > 0) {
+        // 按抽卡時間排序（最新在前）
+        const sortedCards = drawnCards.sort((a, b) => 
+          new Date(b.drawnAt).getTime() - new Date(a.drawnAt).getTime()
+        )
+        
+        setDrawHistory(sortedCards)
+        saveDrawHistory(sortedCards)
+        console.log('✓ 抽卡歷史已更新到狀態和 localStorage')
+      } else {
+        console.log('⚠ 沒有找到任何有效的卡片')
+      }
+      
+    } catch (error) {
+      console.error('重建抽卡歷史失敗:', error)
+    }
+  }
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     setMousePosition({
       x: e.clientX,
@@ -483,14 +569,10 @@ export default function DrawPage() {
       
       setDrawnCard(selectedCard)
 
-      // 同時保持舊的歷史記錄系統（為了 UI 顯示）
-      const newDrawnCard: DrawnCard = {
-        ...selectedCard,
-        drawnAt: new Date().toISOString(),
+      // 立即重建 drawHistory 以反映最新的抽卡記錄
+      if (updatedRecord.drawnCardIds.length > 0) {
+        await rebuildDrawHistoryFromFirestore(updatedRecord.drawnCardIds)
       }
-      const newHistory = [newDrawnCard, ...drawHistory].slice(0, 20)
-      setDrawHistory(newHistory)
-      saveDrawHistory(newHistory)
 
     } catch (error) {
       console.error('抽卡失敗:', error)
@@ -505,10 +587,6 @@ export default function DrawPage() {
     setCardFlipped(false)
   }
 
-  const clearHistory = () => {
-    setDrawHistory([])
-    saveDrawHistory([])
-  }
 
   const flipCard = () => {
     setCardFlipped(!cardFlipped)
@@ -568,25 +646,6 @@ export default function DrawPage() {
             <ArrowLeft className="h-5 w-5 mr-2" />
             返回
           </Button>
-
-          <motion.button
-            onClick={() => setShowHistory(!showHistory)}
-            className="bg-gray-800/90 backdrop-blur-sm border border-gray-600/50 text-white font-syne px-4 py-2 rounded-lg transition-none"
-            whileTap={{
-              scale: 0.95,
-              boxShadow: [
-                "0 0 0px rgba(34, 197, 94, 0)",
-                "0 0 20px rgba(34, 197, 94, 0.6), 0 0 40px rgba(34, 197, 94, 0.3)",
-                "0 0 0px rgba(34, 197, 94, 0)",
-              ],
-            }}
-            transition={{
-              boxShadow: { duration: 0.3, times: [0, 0.5, 1] },
-              scale: { duration: 0.1 },
-            }}
-          >
-            抽卡記錄
-          </motion.button>
         </div>
 
         {/* Title */}
@@ -622,6 +681,7 @@ export default function DrawPage() {
                   <Button
                     onClick={drawCard}
                     disabled={
+                      drawDisabled ||
                       drawing || 
                       !user || 
                       !drawRecord || 
@@ -630,7 +690,7 @@ export default function DrawPage() {
                       remainingCooldown > 0 ||
                       (drawRecord && drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS)
                     }
-                    className="relative h-32 w-32 rounded-full bg-white/10 backdrop-blur-md border-2 border-green-400/30 hover:bg-white/15 hover:border-green-400/50  font-bold text-xl shadow-2xl overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed text-green-300"
+                    className={`relative h-32 w-32 rounded-full backdrop-blur-md border-2 font-bold text-xl shadow-2xl overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed ${drawDisabled ? 'bg-gray-700/40 border-gray-500/40 text-gray-400' : 'bg-white/10 border-green-400/30 hover:bg-white/15 hover:border-green-400/50 text-green-300'}`}
                     style={{
                       boxShadow:
                         "0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
@@ -671,10 +731,10 @@ export default function DrawPage() {
                           className="flex flex-col items-center"
                         >
                           <span
-                            className="text-sm text-green-300"
-                            style={{ textShadow: "0 0 12px #10b981, 0 0 24px #10b981" }}
+                            className={`text-sm ${drawDisabled ? 'text-gray-400' : 'text-green-300'}`}
+                            style={{ textShadow: drawDisabled ? undefined : "0 0 12px #10b981, 0 0 24px #10b981" }}
                           >
-                            開始抽卡
+                            {drawDisabled ? '禁止抽卡' : '開始抽卡'}
                           </span>
                         </motion.div>
                       )}
@@ -903,97 +963,6 @@ export default function DrawPage() {
           </motion.div>
         )}
 
-        {/* Draw History Modal */}
-        <AnimatePresence>
-          {showHistory && (
-            <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowHistory(false)}
-            >
-              <motion.div
-                className="bg-white/10 backdrop-blur-md border border-green-400/30 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl"
-                style={{
-                  boxShadow: "0 0 30px rgba(34, 197, 94, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                }}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between mb-6">
-                  <h3
-                    className="text-2xl font-bold text-green-400 font-noto-sans-tc"
-                    style={{ textShadow: "0 0 10px #22c55e" }}
-                  >
-                    抽卡記錄
-                  </h3>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={clearHistory}
-                      variant="outline"
-                      size="sm"
-                      className="bg-red-600/20 backdrop-blur-sm border-red-500/30 text-red-300 hover:bg-red-600/30 font-syne"
-                    >
-                      清空記錄
-                    </Button>
-                    <Button
-                      onClick={() => setShowHistory(false)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-400 hover:text-white"
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="overflow-y-auto max-h-96">
-                  {drawHistory.length === 0 ? (
-                    <p className="text-gray-400 text-center py-8 font-syne">還沒有抽卡記錄</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {drawHistory.map((card, index) => (
-                        <div
-                          key={`${card.id}-${card.drawnAt}`}
-                          className="flex items-center gap-4 p-3 bg-white/5 backdrop-blur-sm rounded-lg border border-green-400/20"
-                          style={{
-                            boxShadow: "0 0 10px rgba(34, 197, 94, 0.1)",
-                          }}
-                        >
-                          <div className="w-12 h-16 relative flex-shrink-0">
-                            <OptimizedImage
-                              src={card.frontImageUrl || "/placeholder.svg"}
-                              alt={card.name}
-                              fill
-                              className="object-cover rounded"
-                              sizes="48px"
-                              priority={false}
-                              quality={75}
-                              lazy={true}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-white font-bold font-noto-sans-tc">{card.name}</h4>
-                            <p className="text-gray-400 text-sm font-syne">{card.position}</p>
-                            <p className="text-gray-500 text-xs font-syne">
-                              {new Date(card.drawnAt).toLocaleString("zh-TW")}
-                            </p>
-                          </div>
-                          <div className="text-green-400 text-sm font-syne" style={{ textShadow: "0 0 6px #22c55e" }}>
-                            #{index + 1}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Card Modal */}
         <CardModal card={selectedCard} isOpen={isModalOpen} onClose={handleModalClose} />

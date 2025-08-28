@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Trash2, Search, RefreshCw, Users, Calendar, Eye, EyeOff, Database, HardDrive } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import UserDrawManagement from "@/components/user-draw-management"
 
 interface AdminCard {
   id: string
@@ -36,6 +37,7 @@ export default function AdminPage() {
   const [showImages, setShowImages] = useState(true)
   const [deleting, setDeleting] = useState<string[]>([])
   const [totalCount, setTotalCount] = useState(0)
+  const [clearingDrawRecords, setClearingDrawRecords] = useState(false)
 
   useEffect(() => {
     fetchCards()
@@ -133,6 +135,41 @@ export default function AdminPage() {
     }
   }
 
+  const clearAllDrawRecords = async () => {
+    if (!confirm("確定要清空所有用戶的抽卡記錄嗎？\n\n此操作將會：\n- 清空所有用戶的 Firestore 抽卡記錄\n- 用戶下次登入時 localStorage 也會被清空\n\n此操作無法撤銷！")) return
+
+    try {
+      setClearingDrawRecords(true)
+      
+      const response = await fetch("/api/draw-records", {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        if (result.errors && result.errors.length > 0) {
+          alert(`${result.message}\n\n錯誤詳情：\n${result.errors.join('\n')}`)
+        } else {
+          alert(result.message)
+        }
+        
+        // 清空所有用戶的 localStorage (只能在客戶端清空當前用戶的)
+        localStorage.removeItem('conference_draw_record')
+        localStorage.removeItem('drawHistory')
+        
+      } else {
+        const errorData = await response.json()
+        alert(`清空失敗：${errorData.error || '未知錯誤'}`)
+      }
+    } catch (error) {
+      console.error("Clear all draw records error:", error)
+      alert("清空抽卡記錄失敗，請重試")
+    } finally {
+      setClearingDrawRecords(false)
+    }
+  }
+
   const toggleCardSelection = (cardId: string) => {
     setSelectedCards((prev) => (prev.includes(cardId) ? prev.filter((id) => id !== cardId) : [...prev, cardId]))
   }
@@ -166,6 +203,32 @@ export default function AdminPage() {
   const isNearCapacity = capacityPercentage > 80
   const isAtCapacity = capacityPercentage >= 100
 
+  const [drawEnabled, setDrawEnabled] = useState<boolean>(true)
+
+  useEffect(() => {
+    // 讀取初始開關狀態
+    fetch('/api/admin/draw-toggle', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => setDrawEnabled(!!data.enabled))
+      .catch(() => setDrawEnabled(true))
+  }, [])
+
+  const toggleDraw = async () => {
+    try {
+      const res = await fetch('/api/admin/draw-toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !drawEnabled }),
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || '切換失敗')
+      setDrawEnabled(data.enabled)
+    } catch (e: any) {
+      alert(e.message || '切換失敗')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <div className="container mx-auto px-4 py-8">
@@ -176,14 +239,30 @@ export default function AdminPage() {
               <h1 className="text-4xl font-bold text-white mb-2 font-noto-sans-tc">管理後台</h1>
               <p className="text-gray-400 font-syne">管理研討會互動卡片</p>
             </div>
-            <Link href="/">
-              <Button
-                variant="outline"
-                className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 font-syne"
-              >
-                返回首頁
-              </Button>
-            </Link>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-full px-3 py-2">
+                <span className={`text-sm font-syne ${drawEnabled ? 'text-gray-400' : 'text-red-400'}`}>關閉抽卡</span>
+                <button
+                  onClick={toggleDraw}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${drawEnabled ? 'bg-green-500/80' : 'bg-gray-600'}`}
+                  aria-label="切換抽卡開關"
+                  title={drawEnabled ? '目前：允許抽卡' : '目前：禁止抽卡'}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${drawEnabled ? 'translate-x-5' : 'translate-x-1'}`}
+                  />
+                </button>
+                <span className="text-sm font-syne text-green-400">開放抽卡</span>
+              </div>
+              <Link href="/">
+                <Button
+                  variant="outline"
+                  className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 font-syne"
+                >
+                  返回首頁
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Stats */}
@@ -326,10 +405,29 @@ export default function AdminPage() {
                 variant="destructive"
                 className="bg-red-600 hover:bg-red-700 font-syne"
               >
-                清空全部
+                清空全部名片
+              </Button>
+
+              <Button
+                onClick={clearAllDrawRecords}
+                disabled={clearingDrawRecords}
+                variant="destructive"
+                className="bg-orange-600 hover:bg-orange-700 font-syne"
+              >
+                {clearingDrawRecords ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                清空 draw 全部
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* User Draw Management */}
+        <div className="mb-8">
+          <UserDrawManagement cards={cards} />
         </div>
 
         {/* Cards List */}
