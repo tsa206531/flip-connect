@@ -258,7 +258,7 @@ export default function DrawCard({ cards, isOpen, onClose, currentUserId }: Draw
             </div>
             <div className="text-center p-4 glass-morphism rounded-2xl">
               <div className="text-3xl font-bold text-pink-400 mb-1">{DRAW_LIMITS.MAX_DRAWS}</div>
-              <div className="text-sm text-muted-foreground">每日上限</div>
+              <div className="text-sm text-muted-foreground">總上限</div>
             </div>
           </motion.div>
         )}
@@ -272,7 +272,7 @@ export default function DrawCard({ cards, isOpen, onClose, currentUserId }: Draw
           >
             <Clock className="w-6 h-6 text-yellow-400 mr-4 flex-shrink-0" />
             <div>
-              <p className="text-yellow-400 font-medium mb-1">冷卻時間中</p>
+              <p className="text-yellow-400 font-medium mb-1">冷卻中</p>
               <p className="text-yellow-400/70 text-sm">還需等待 {formatRemainingTime(remainingCooldown)}</p>
             </div>
           </motion.div>
@@ -343,7 +343,7 @@ export default function DrawCard({ cards, isOpen, onClose, currentUserId }: Draw
               ) : drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS ? (
                 <>
                   <AlertCircle className="w-6 h-6 mr-3" />
-                  已達上限
+                  已達總上限
                 </>
               ) : availableCards.length === 0 ? (
                 <>

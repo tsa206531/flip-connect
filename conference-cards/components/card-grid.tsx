@@ -7,7 +7,6 @@ import InitialEmptyState from "./initial-empty-state"
 import CardModal from "./card-modal"
 import { motion, AnimatePresence } from "framer-motion"
 import { Users, Calendar, Sparkles } from "lucide-react"
-import { useAuth } from "@/contexts/AuthContext"
 
 
 
@@ -29,47 +28,21 @@ interface CardGridProps {
 }
 
 export default function CardGrid({ onCardsLoaded }: CardGridProps) {
-  const { user } = useAuth()
   const [allCards, setAllCards] = useState<Card[]>([])
-  const [sortedCards, setSortedCards] = useState<Card[]>([]) // 保存排序后的卡片，避免重复排序
   const [displayedCards, setDisplayedCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [selectedCard, setSelectedCard] = useState<Card | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   
   // 分頁配置
-  const INITIAL_LOAD = 8  // 初始載入8張
+  const INITIAL_LOAD = 7  // 初始載入7張
   const LOAD_MORE = 4     // 每次載入4張
-  const MAX_CARDS = 20    // 最多20張
-
-  // 排序卡片：用户自己的卡片在第二位开始，其他卡片随机排列
+  // 排序卡片：全部卡片隨機排列
   const sortCards = (cards: Card[]) => {
-    if (!user) {
-      // 如果用户未登录，随机排列所有卡片
-      return [...cards].sort(() => Math.random() - 0.5)
-    }
-
-    const userCards: Card[] = []
-    const otherCards: Card[] = []
-
-    // 分离用户自己的卡片和其他卡片
-    cards.forEach(card => {
-      // 检查卡片是否属于当前用户（通过 userId 字段或其他标识）
-      if ((card as any).userId === user.uid) {
-        userCards.push(card)
-      } else {
-        otherCards.push(card)
-      }
-    })
-
-    // 随机排列其他用户的卡片
-    const shuffledOtherCards = [...otherCards].sort(() => Math.random() - 0.5)
-
-    // 返回排序后的卡片：用户卡片在前，其他卡片随机在后
-    // 注意：第一张位置会被"上传名片"占据，所以这里的顺序会从第二张开始显示
-    return [...userCards, ...shuffledOtherCards]
+    return [...cards].sort(() => Math.random() - 0.5)
   }
 
   useEffect(() => {
@@ -79,70 +52,39 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
   const fetchCards = async () => {
     try {
       // First try to fetch from API
-      const apiResponse = await fetch("/api/cards", {
+      const apiResponse = await fetch(`/api/cards?limit=${INITIAL_LOAD}`, {
         cache: "no-store",
       })
       
       let apiCards: Card[] = []
+      let apiPayload: any = null
       if (apiResponse.ok) {
-        const apiData = await apiResponse.json()
-        apiCards = (apiData.cards || []).filter(
+        apiPayload = await apiResponse.json()
+        apiCards = (apiPayload.cards || []).filter(
           (card: Card) =>
             card.id && card.name && card.position && card.frontImageUrl && card.backImageUrl && card.createdAt,
         )
       }
 
-      // Also fetch mock data from JSON file
-      const mockResponse = await fetch("/carddata.json", {
-        cache: "no-store",
-      })
-      
-      let mockCards: Card[] = []
-      if (mockResponse.ok) {
-        mockCards = await mockResponse.json()
-        console.log("Fetched mock cards:", mockCards.length)
-      }
-
-      // 去重合併：優先使用 API 卡片，避免重複
+      // 移除 mock 合併：僅使用 API 卡片
       const combinedCards = [...apiCards]
       
-      // 只添加不重複的 mock 卡片
-      mockCards.forEach(mockCard => {
-        const isDuplicate = apiCards.some(apiCard => 
-          apiCard.id === mockCard.id || 
-          (apiCard.name === mockCard.name && apiCard.position === mockCard.position)
-        )
-        if (!isDuplicate) {
-          combinedCards.push(mockCard)
-        }
-      })
-      
       console.log("API cards:", apiCards.length)
-      console.log("Mock cards:", mockCards.length) 
-      console.log("Combined cards (after deduplication):", combinedCards.length)
+      console.log("Combined cards:", combinedCards.length)
       
-      // 限制最大卡片數量
-      const limitedCards = combinedCards.slice(0, MAX_CARDS)
+      // 改為直接採用 API 分頁結果，不在前端限制最大數量
+      const limitedCards = combinedCards
       setAllCards(limitedCards)
-      
-      // 只在初始加载或卡片数量变化时重新排序
-      const needsResorting = sortedCards.length === 0 || sortedCards.length !== limitedCards.length
-      let finalSortedCards = sortedCards
-      
-      if (needsResorting) {
-        // 应用排序：用户卡片在前，其他卡片随机排列
-        finalSortedCards = sortCards(limitedCards)
-        setSortedCards(finalSortedCards)
-      }
-      
-      // 初始只顯示前8張
-      const initialCards = finalSortedCards.slice(0, INITIAL_LOAD)
+
+      // 初始顯示，並本地隨機
+      const initialCards = sortCards(limitedCards).slice(0, INITIAL_LOAD)
       setDisplayedCards(initialCards)
-      
-      // 檢查是否還有更多卡片
-      setHasMore(finalSortedCards.length > INITIAL_LOAD)
-      
-      onCardsLoaded?.(finalSortedCards)
+
+      // 後端回傳 nextCursor 時代表還有下一頁
+      setHasMore(!!(apiPayload && apiPayload.nextCursor))
+      setNextCursor((apiPayload && apiPayload.nextCursor) || null)
+
+      onCardsLoaded?.(limitedCards)
     } catch (error) {
       console.error("Failed to fetch cards:", error)
       setAllCards([])
@@ -156,25 +98,36 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
 
   const refreshCards = () => {
     setLoading(true)
-    setSortedCards([]) // 重置排序状态，强制重新排序
     fetchCards()
   }
 
-  const loadMoreCards = () => {
+  const loadMoreCards = async () => {
     if (loadingMore || !hasMore) return
     
     setLoadingMore(true)
     
-    // 模擬載入延遲，提供更好的用戶體驗
-    setTimeout(() => {
-      const currentCount = displayedCards.length
-      const nextBatch = sortedCards.slice(currentCount, currentCount + LOAD_MORE)
-      const newDisplayedCards = [...displayedCards, ...nextBatch]
-      
+    try {
+      const params = new URLSearchParams()
+      params.set('limit', String(LOAD_MORE))
+      if (nextCursor) params.set('cursor', nextCursor)
+
+      const res = await fetch(`/api/cards?${params.toString()}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error('Failed to load more cards')
+      const data = await res.json()
+
+      const newCards: Card[] = (data.cards || [])
+      const shuffled = sortCards(newCards)
+      const newDisplayedCards = [...displayedCards, ...shuffled]
+
       setDisplayedCards(newDisplayedCards)
-      setHasMore(newDisplayedCards.length < sortedCards.length)
+      setHasMore(!!data.nextCursor)
+      setNextCursor(data.nextCursor || null)
+    } catch (e) {
+      console.error(e)
+      setHasMore(false)
+    } finally {
       setLoadingMore(false)
-    }, 500)
+    }
   }
 
   const handleCardClick = (card: Card) => {
@@ -213,7 +166,7 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [loadingMore, hasMore, displayedCards.length, sortedCards.length])
+  }, [loadingMore, hasMore, displayedCards.length, nextCursor])
 
   if (loading) {
     return (
@@ -243,8 +196,7 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
     return <InitialEmptyState />
   }
 
-  // If there are some cards, show them with one empty card at the beginning
-  console.log("Rendering cards:", displayedCards.length, "of", allCards.length)
+  console.log("Rendering cards:", displayedCards.length)
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -351,13 +303,13 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
           </div>
           
           {/* 載入進度提示 */}
-          {sortedCards.length > INITIAL_LOAD && (
+          {hasMore ? (
             <div className="text-xs text-muted-foreground/70 font-syne">
-              {hasMore ? (
-                <span>顯示 {displayedCards.length} / {sortedCards.length} 張卡片 • 向下滾動載入更多</span>
-              ) : (
-                <span>已顯示全部 {displayedCards.length} 張卡片</span>
-              )}
+              <span>已顯示 {displayedCards.length} 張卡片 • 向下滾動載入更多</span>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground/70 font-syne">
+              <span>已顯示全部 {displayedCards.length} 張卡片</span>
             </div>
           )}
         </div>

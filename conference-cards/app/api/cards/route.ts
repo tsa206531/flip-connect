@@ -46,83 +46,141 @@ try {
   console.warn("Cannot initialize global storage:", error)
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log("=== Cards API Called ===")
+    console.log("=== Cards API Called (paged) ===")
+
+    const url = new URL(request.url)
+    const limitParam = url.searchParams.get("limit")
+    const cursorParam = url.searchParams.get("cursor")
+
+    const limitNum = Math.max(1, Math.min(parseInt(limitParam || "12", 10) || 12, 50))
+
+    const { collection, query: fsQuery, orderBy, getDocs, startAfter, limit: fsLimit, Timestamp } = await import('firebase/firestore')
 
     let firestoreCards: any[] = []
-    let uploadedCards: any[] = []
+    let nextCursor: string | null = null
 
-    // First try to get cards from Firestore
     try {
-      const cards = await getCardsFromFirestore()
-      firestoreCards = cards.map(card => ({
-        id: card.id,
-        userId: (card as any).userId, // 將 userId 一併返回
-        name: card.name,
-        position: card.position,
-        frontImageUrl: card.frontImageUrl,
-        backImageUrl: card.backImageUrl,
-        createdAt: card.createdAt.toDate ? card.createdAt.toDate().toISOString() : card.createdAt,
-        source: 'firestore'
-      }))
-      console.log("Found Firestore cards:", firestoreCards.length)
+      const cardsRef = collection(db, 'cards')
+
+      try {
+        // Primary: order by createdAt desc with cursor
+        let q = fsQuery(cardsRef, orderBy('createdAt', 'desc'), fsLimit(limitNum))
+        if (cursorParam) {
+          const cursorTs = Timestamp.fromDate(new Date(cursorParam))
+          q = fsQuery(cardsRef, orderBy('createdAt', 'desc'), startAfter(cursorTs), fsLimit(limitNum))
+        }
+        const querySnapshot = await getDocs(q)
+
+        firestoreCards = querySnapshot.docs.map((doc: any) => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            userId: data.userId,
+            name: data.name,
+            position: data.position,
+            frontImageUrl: data.frontImageUrl,
+            backImageUrl: data.backImageUrl,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+            source: 'firestore'
+          }
+        })
+
+        const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1]
+        if (lastDoc) {
+          const lastData = lastDoc.data()
+          if (lastData?.createdAt?.toDate) {
+            nextCursor = lastData.createdAt.toDate().toISOString()
+          } else if (typeof lastData?.createdAt === 'string') {
+            nextCursor = lastData.createdAt
+          } else {
+            nextCursor = null
+          }
+        }
+
+        console.log(`Fetched ${firestoreCards.length} cards from Firestore (ordered, limit=${limitNum})`)
+      } catch (primaryError) {
+        console.warn('Primary ordered query failed, falling back to unordered limit:', primaryError)
+        // Fallback: simple limit without order (no cursor support)
+        const q2 = fsQuery(cardsRef, fsLimit(limitNum))
+        const snapshot2 = await getDocs(q2)
+        firestoreCards = snapshot2.docs.map((doc: any) => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            userId: data.userId,
+            name: data.name,
+            position: data.position,
+            frontImageUrl: data.frontImageUrl,
+            backImageUrl: data.backImageUrl,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+            source: 'firestore-unordered'
+          }
+        })
+        nextCursor = null
+      }
     } catch (firestoreError) {
       console.warn("Firestore access failed:", firestoreError)
       firestoreCards = []
+      nextCursor = null
     }
 
-    // Also get cards from local storage as fallback
+    // Fallback to in-memory uploaded cards when Firestore has no results
+    let uploadedCards: any[] = []
     try {
-      uploadedCards = getCardsStorage()
-      console.log("Found local storage cards:", uploadedCards.length)
-
-      if (uploadedCards.length > 0) {
-        // Log storage statistics
-        const storageSize = JSON.stringify(uploadedCards).length
-        console.log("Current storage size (characters):", storageSize)
-        console.log("Estimated storage size (MB):", (storageSize / 1024 / 1024).toFixed(2))
-        console.log("Storage capacity utilization:", `${uploadedCards.length}/300 cards`)
-      }
-    } catch (storageError) {
-      console.warn("Storage access failed:", storageError)
+      uploadedCards = getCardsStorage().map((card: any) => ({
+        ...card,
+        source: 'local'
+      }))
+    } catch (e) {
       uploadedCards = []
     }
 
-    // Combine Firestore and local cards (Firestore takes priority)
-    const allCards = [...firestoreCards, ...uploadedCards]
-    
-    // Remove duplicates based on ID (prefer Firestore version)
-    const uniqueCards = allCards.reduce((acc, card) => {
-      const existingIndex = acc.findIndex(c => c.id === card.id)
-      if (existingIndex === -1) {
-        acc.push(card)
+    if (firestoreCards.length === 0) {
+      // Local pagination by createdAt DESC
+      const parseTime = (v: any): number => {
+        try {
+          if (!v) return 0
+          if (typeof v === 'string') return new Date(v).getTime() || 0
+          if (typeof v === 'number') return v
+          if (typeof v?.toDate === 'function') return v.toDate().getTime()
+          if (v instanceof Date) return v.getTime()
+          return 0
+        } catch { return 0 }
       }
-      return acc
-    }, [] as any[])
 
-    // Return cards with pagination support for large datasets
-    const page = 1 // Could be extracted from query params in the future
-    const limit = 300 // Support up to 300 cards per page
-    const startIndex = (page - 1) * limit
-    const endIndex = startIndex + limit
-    const paginatedCards = uniqueCards.slice(startIndex, endIndex)
+      let list = uploadedCards
+        .filter(c => c.id && c.name && c.position && c.frontImageUrl && c.backImageUrl)
+        .sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt))
 
-    console.log("Total unique cards to return:", paginatedCards.length)
+      if (cursorParam) {
+        const cursorTime = parseTime(cursorParam)
+        list = list.filter(item => parseTime(item.createdAt) < cursorTime)
+      }
+
+      const pageItems = list.slice(0, limitNum)
+      const next = pageItems.length === limitNum ? pageItems[pageItems.length - 1]?.createdAt ?? null : null
+
+      return NextResponse.json({
+        success: true,
+        cards: pageItems,
+        count: pageItems.length,
+        nextCursor: next,
+        hasMore: pageItems.length === limitNum,
+        source: 'local'
+      })
+    }
+
+    const hasMore = firestoreCards.length === limitNum && !!nextCursor
 
     return NextResponse.json({
       success: true,
-      cards: paginatedCards,
-      count: paginatedCards.length,
-      totalCount: uniqueCards.length,
-      sources: {
-        firestore: firestoreCards.length,
-        localStorage: uploadedCards.length,
-        total: uniqueCards.length
-      },
-      page: page,
-      totalPages: Math.ceil(uniqueCards.length / limit),
-      hasMore: uniqueCards.length > endIndex,
+      cards: firestoreCards,
+      count: firestoreCards.length,
+      nextCursor,
+      hasMore,
+      source: 'firestore'
     })
   } catch (error) {
     console.error("=== Cards API Error ===")
@@ -134,7 +192,8 @@ export async function GET() {
         error: "Failed to fetch cards",
         cards: [],
         count: 0,
-        totalCount: 0,
+        nextCursor: null,
+        hasMore: false,
       },
       { status: 500 },
     )

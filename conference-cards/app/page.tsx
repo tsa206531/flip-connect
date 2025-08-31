@@ -4,7 +4,8 @@ import type React from "react"
 import { Suspense, useState, useEffect } from "react"
 import CardGrid from "@/components/card-grid"
 import { Button } from "@/components/ui/button"
-import MatrixLoading from "@/components/matrix-loading"
+import dynamic from "next/dynamic"
+const MatrixLoading = dynamic(() => import("@/components/matrix-loading"), { ssr: false })
 import DrawCard from "@/components/draw-card"
 import UserMenu from "@/components/user-menu"
 import { Download, FileImage, Sparkles, Users, Calendar, Shuffle, Eye } from "lucide-react"
@@ -51,7 +52,7 @@ function DynamicSubtitle() {
 
   return (
     <motion.div
-      className="mb-8"
+      className="mb-8 pt-8"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.4 }}
@@ -264,7 +265,7 @@ export default function Page() {
 
       {/* 用戶選單 */}
       <motion.div
-        className="absolute top-6 left-6 z-40"
+        className="fixed left-[calc(1rem+env(safe-area-inset-left))] bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 md:absolute md:top-6 md:left-6 md:bottom-auto"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
@@ -285,8 +286,8 @@ export default function Page() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            UX3 三刀流交流研討會
+> 
+            <span>2025 UX 三刀流</span>{' '}<span className="inline max-[450px]:block">交流研討年會</span>
           </motion.h1>
 
           <DynamicSubtitle />

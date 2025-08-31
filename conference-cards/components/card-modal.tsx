@@ -39,7 +39,7 @@ export default function CardModal({ card, isOpen, onClose }: CardModalProps) {
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -52,22 +52,21 @@ export default function CardModal({ card, isOpen, onClose }: CardModalProps) {
             exit={{ scale: 0.8, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button */}
-            <div className="absolute -top-12 right-0 z-60">
-              <Button
-                onClick={handleClose}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:text-gray-300 hover:bg-white/10 rounded-full p-3"
-              >
-                <X className="w-6 h-6" />
-              </Button>
-            </div>
-
             {/* Card Container */}
-            <div className="relative perspective-1000">
+            <div className="relative perspective-1000 px-6 sm:px-0">
+              {/* Close Button over the card */}
+              <div className="absolute -top-5 -right-1 sm:-top-6 sm:-right-4 z-10">
+                <Button
+                  onClick={handleClose}
+                  variant="destructive"
+                  size="sm"
+                  className="rounded-full p-0 shadow-xl hover:shadow-2xl bg-red-500 hover:bg-red-600 border-2 border-white transition-all duration-200 hover:scale-110 h-10 w-10 flex items-center justify-center"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </Button>
+              </div>
               <motion.div
-                className="relative w-[400px] h-[615px] cursor-pointer transform-style-preserve-3d"
+                className="relative w-[360px] h-[554px] sm:w-[400px] sm:h-[615px] max-[408px]:w-[calc(100vw-48px)] max-[408px]:h-[calc((100vw-48px)*1.5375)] cursor-pointer transform-style-preserve-3d"
                 animate={{ rotateY: isFlipped ? 180 : 0 }}
                 transition={{ duration: 0.6, ease: "easeInOut" }}
                 onClick={handleFlip}

@@ -313,6 +313,7 @@ export default function DrawPage() {
   const [remainingCooldown, setRemainingCooldown] = useState<number>(0)
   
   const router = useRouter()
+  const isBypass = user?.email === 'tsa206531@gmail.com'
 
   useEffect(() => {
     fetchCards()
@@ -371,9 +372,10 @@ export default function DrawPage() {
   // 冷卻時間倒計時
   useEffect(() => {
     if (!drawRecord) return
+    if (isBypass) { setRemainingCooldown(0); return }
 
     const checkCooldown = () => {
-      const { canDraw, remainingTime } = canDrawCard(drawRecord)
+      const { canDraw, remainingTime } = canDrawCard(drawRecord, { bypass: isBypass })
       if (!canDraw && remainingTime) {
         setRemainingCooldown(remainingTime)
       } else {
@@ -536,9 +538,8 @@ export default function DrawPage() {
 
   const drawCard = async () => {
     if (!user || !drawRecord) return
-
     // 檢查是否可以抽卡
-    const { canDraw, reason } = canDrawCard(drawRecord)
+    const { canDraw, reason } = canDrawCard(drawRecord, { bypass: isBypass })
     if (!canDraw) {
       setError(reason || '無法抽卡')
       return
@@ -564,7 +565,7 @@ export default function DrawPage() {
       const selectedCard = availableCards[randomIndex]
 
       // 記錄抽卡到新系統
-      const updatedRecord = await recordDrawnCard(user.uid, selectedCard.id)
+      const updatedRecord = await recordDrawnCard(user.uid, selectedCard.id, { bypass: isBypass })
       setDrawRecord(updatedRecord)
       
       setDrawnCard(selectedCard)
@@ -658,6 +659,7 @@ export default function DrawPage() {
               抽卡活動
             </h1>
             <p className="text-xl text-gray-300 font-syne mb-2">隨機抽取參與者名片</p>
+            <p className="text-gray-400 font-syne mb-2">每10分鐘抽一次名片，最多可抽取30次。</p>
             <p className="text-gray-400 font-syne flex items-center justify-center gap-2">
               <Users className="w-4 h-4" />
               目前共有 {cards.length} 張名片
@@ -676,6 +678,34 @@ export default function DrawPage() {
               transition={{ duration: 0.6, delay: 0.2 }}
             >
               <div className="mb-8">
+                {/* 狀態提示區塊 */}
+                {!isInitializing && (
+                  <>
+
+                    {remainingCooldown > 0 && (
+                      <motion.div 
+                        className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl flex items-center justify-center max-w-xl mx-auto"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <Clock className="w-5 h-5 text-yellow-400 mr-2" />
+                        <span className="text-yellow-400 text-sm">冷卻中（{String(Math.floor(remainingCooldown / 60000)).padStart(2, '0')}:{String(Math.floor((remainingCooldown % 60000) / 1000)).padStart(2, '0')}）</span>
+                      </motion.div>
+                    )}
+
+                    {drawRecord && drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS && (
+                      <motion.div 
+                        className="mb-4 p-4 bg-pink-500/10 border border-pink-500/30 rounded-2xl flex items-center justify-center max-w-xl mx-auto"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <AlertCircle className="w-5 h-5 text-pink-400 mr-2" />
+                        <span className="text-pink-400 text-sm">已達總上限（{drawRecord.drawCount}/{DRAW_LIMITS.MAX_DRAWS}）</span>
+                      </motion.div>
+                    )}
+                  </>
+                )}
+
                 <motion.div className="relative inline-block" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   {/* 透明磨沙抽卡按鈕 */}
                   <Button
@@ -687,8 +717,8 @@ export default function DrawPage() {
                       !drawRecord || 
                       isInitializing ||
                       getAvailableCards().length === 0 ||
-                      remainingCooldown > 0 ||
-                      (drawRecord && drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS)
+                      (!isBypass && remainingCooldown > 0) ||
+                      (!isBypass && drawRecord && drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS)
                     }
                     className={`relative h-32 w-32 rounded-full backdrop-blur-md border-2 font-bold text-xl shadow-2xl overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed ${drawDisabled ? 'bg-gray-700/40 border-gray-500/40 text-gray-400' : 'bg-white/10 border-green-400/30 hover:bg-white/15 hover:border-green-400/50 text-green-300'}`}
                     style={{
@@ -734,7 +764,7 @@ export default function DrawPage() {
                             className={`text-sm ${drawDisabled ? 'text-gray-400' : 'text-green-300'}`}
                             style={{ textShadow: drawDisabled ? undefined : "0 0 12px #10b981, 0 0 24px #10b981" }}
                           >
-                            {drawDisabled ? '禁止抽卡' : '開始抽卡'}
+                            {drawDisabled ? '禁止抽卡' : (!isBypass && remainingCooldown > 0) ? '冷卻中' : (!isBypass && drawRecord && drawRecord.drawCount >= DRAW_LIMITS.MAX_DRAWS) ? '已達總上限' : getAvailableCards().length === 0 ? '無可抽卡片' : '開始抽卡'}
                           </span>
                         </motion.div>
                       )}
@@ -893,17 +923,6 @@ export default function DrawPage() {
                   }}
                 >
                   關閉抽卡
-                </Button>
-                <Button
-                  onClick={drawCard}
-                  disabled={drawing}
-                  className="bg-white/10 backdrop-blur-md border-2 border-green-400/30 hover:bg-white/15 hover:border-green-400/50 text-green-400 font-syne px-6 py-3 disabled:opacity-50"
-                  style={{
-                    boxShadow: "0 0 15px rgba(34, 197, 94, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                    textShadow: "0 0 8px #22c55e",
-                  }}
-                >
-                  再抽一張
                 </Button>
               </motion.div>
             </motion.div>

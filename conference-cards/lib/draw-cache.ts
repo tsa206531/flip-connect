@@ -16,9 +16,9 @@ const DRAW_RECORD_KEY = 'conference_draw_record'
 
 // 抽卡限制配置
 export const DRAW_LIMITS = {
-  MAX_DRAWS: 25,           // 最多抽25張
-  COOLDOWN_MINUTES: 0,     // 暫時移除冷卻限制（測試用）
-  COOLDOWN_MS: 0           // 暫時移除冷卻限制（測試用）
+  MAX_DRAWS: 30,           // 最多抽30張
+  COOLDOWN_MINUTES: 10,    // 每 10 分鐘冷卻
+  COOLDOWN_MS: 10 * 60 * 1000
 }
 
 /**
@@ -206,9 +206,9 @@ export async function initializeDrawRecord(userId: string): Promise<DrawRecord> 
 /**
  * 檢查是否可以抽卡
  */
-export function canDrawCard(record: DrawRecord): { canDraw: boolean; reason?: string; remainingTime?: number } {
+export function canDrawCard(record: DrawRecord, opts?: { bypass?: boolean }): { canDraw: boolean; reason?: string; remainingTime?: number } {
   // 檢查抽卡次數限制
-  if (record.drawCount >= DRAW_LIMITS.MAX_DRAWS) {
+  if (!opts?.bypass && record.drawCount >= DRAW_LIMITS.MAX_DRAWS) {
     return {
       canDraw: false,
       reason: `已達到最大抽卡次數限制（${DRAW_LIMITS.MAX_DRAWS}張）`
@@ -219,7 +219,7 @@ export function canDrawCard(record: DrawRecord): { canDraw: boolean; reason?: st
   const now = Date.now()
   const timeSinceLastDraw = now - record.lastDrawTime
   
-  if (record.lastDrawTime > 0 && timeSinceLastDraw < DRAW_LIMITS.COOLDOWN_MS) {
+  if (!opts?.bypass && record.lastDrawTime > 0 && timeSinceLastDraw < DRAW_LIMITS.COOLDOWN_MS) {
     const remainingTime = DRAW_LIMITS.COOLDOWN_MS - timeSinceLastDraw
     return {
       canDraw: false,
@@ -234,7 +234,7 @@ export function canDrawCard(record: DrawRecord): { canDraw: boolean; reason?: st
 /**
  * 記錄新的抽卡
  */
-export async function recordDrawnCard(userId: string, cardId: string): Promise<DrawRecord> {
+export async function recordDrawnCard(userId: string, cardId: string, opts?: { bypass?: boolean }): Promise<DrawRecord> {
   try {
     // 1. 載入當前記錄
     const currentRecord = loadLocalDrawRecord(userId) || {
@@ -252,8 +252,8 @@ export async function recordDrawnCard(userId: string, cardId: string): Promise<D
     const updatedRecord: DrawRecord = {
       ...currentRecord,
       drawnCardIds: [...currentRecord.drawnCardIds, cardId],
-      drawCount: currentRecord.drawCount + 1,
-      lastDrawTime: now,
+      drawCount: opts?.bypass ? currentRecord.drawCount : currentRecord.drawCount + 1,
+      lastDrawTime: opts?.bypass ? currentRecord.lastDrawTime : now,
       lastSyncTime: now,
       drawnCardTimestamps: {
         ...currentRecord.drawnCardTimestamps,

@@ -79,12 +79,7 @@ export default function UserMenu() {
       <AnimatePresence>
         {showUserMenu && (
           <motion.div
-            className="absolute top-full left-0 mt-2 w-48 glass-morphism rounded-xl border border-border/50 shadow-2xl z-[60]"
-            style={{ 
-              position: 'fixed',
-              top: '4rem',
-              left: '1.5rem'
-            }}
+            className="w-48 glass-morphism rounded-xl border border-border/50 shadow-2xl z-[60] fixed left-[calc(1rem+env(safe-area-inset-left))] bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:absolute md:bottom-auto md:top-full md:left-0 md:mt-2"
             initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}

@@ -7,7 +7,8 @@ import {
   query,
   orderBy,
   where,
-  Timestamp 
+  Timestamp,
+  limit 
 } from 'firebase/firestore'
 import { db } from './firebase'
 
@@ -53,7 +54,7 @@ export async function saveUserToFirestore(user: any) {
 }
 
 // 上傳卡片到 Firestore
-export async function uploadCardToFirestore(cardData: Omit<CardData, 'id' | 'createdAt'>) {
+export async function uploadCardToFirestore(cardData: Omit<CardData, 'id' | 'createdAt'> & { overwriteId?: string }) {
   try {
     const cardsRef = collection(db, 'cards')
     const newCard: Omit<CardData, 'id'> = {
@@ -134,4 +135,38 @@ export async function getUserCardsFromFirestore(userId: string): Promise<CardDat
     console.error('獲取用戶卡片失敗:', error)
     throw error
   }
+}
+
+// 取得使用者最新一張卡片（若存在）
+export async function getUserLatestCardFromFirestore(userId: string): Promise<CardData | null> {
+  try {
+    const cardsRef = collection(db, 'cards')
+    // 僅檢查是否存在，避免因為 orderBy 需要複合索引而失敗
+    const q = query(
+      cardsRef,
+      where('userId', '==', userId),
+      limit(1)
+    )
+    const querySnapshot = await getDocs(q)
+    if (querySnapshot.empty) return null
+    const d = querySnapshot.docs[0]
+    const data = d.data()
+    return {
+      id: d.id,
+      userId: data.userId,
+      name: data.name,
+      position: data.position,
+      frontImageUrl: data.frontImageUrl,
+      backImageUrl: data.backImageUrl,
+      createdAt: data.createdAt
+    }
+  } catch (error) {
+    console.error('取得使用者最新卡片失敗:', error)
+    throw error
+  }
+}
+
+export async function userHasCardInFirestore(userId: string): Promise<boolean> {
+  const latest = await getUserLatestCardFromFirestore(userId)
+  return !!latest
 }

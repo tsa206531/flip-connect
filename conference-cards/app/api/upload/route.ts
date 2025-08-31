@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { randomUUID } from "crypto"
-import { uploadCardToFirestore } from "@/lib/firestore"
+import { uploadCardToFirestore, userHasCardInFirestore } from "@/lib/firestore"
 
 // Use global storage to persist across requests
 declare global {
@@ -70,18 +70,20 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Extract form fields
     console.log("Step 2: Extracting form fields...")
-    let name: string, position: string, frontImage: File, backImage: File, userId: string
+    let name: string, position: string, frontImage: File, backImage: File, userId: string, userEmail: string
     try {
       name = formData.get("name") as string
       position = formData.get("position") as string
       frontImage = formData.get("frontImage") as File
       backImage = formData.get("backImage") as File
       userId = formData.get("userId") as string
+      userEmail = (formData.get("userEmail") as string) || ""
 
       console.log("✓ Form fields extracted:", {
         name: name || "missing",
         position: position || "missing",
         userId: userId || "missing",
+        userEmail: userEmail || "missing",
         frontImageName: frontImage?.name || "missing",
         frontImageSize: frontImage?.size || "missing",
         backImageName: backImage?.name || "missing",
@@ -259,10 +261,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Step 9: Upload to Firestore
-    console.log("Step 9: Uploading to Firestore...")
+    // Step 9: Enforce one-card-per-user and upload to Firestore
+    console.log("Step 9: Enforcing one-card-per-user and uploading to Firestore...")
     let firestoreCard = null
     try {
+      const alreadyHas = await userHasCardInFirestore(userId)
+      const isBypass = (userEmail && userEmail.toLowerCase() === 'tsa206531@gmail.com') || (userId && typeof userId === 'string' && userId.toLowerCase() === 'tsa206531@gmail.com')
+      if (alreadyHas && !isBypass) {
+        console.warn("User already has a card, rejecting upload", { userId })
+        return NextResponse.json(
+          {
+            success: false,
+            error: "您已上傳過名片，每個帳號僅能上傳一張。如需更新，請聯繫工作人員或等待更新功能。",
+            step: "duplicate-check",
+          },
+          { status: 409 },
+        )
+      }
+
       firestoreCard = await uploadCardToFirestore({
         userId: userId,
         name: cardData.name,
@@ -272,8 +288,16 @@ export async function POST(request: NextRequest) {
       })
       console.log("✓ Card uploaded to Firestore successfully")
     } catch (firestoreError) {
-      console.error("✗ Firestore upload failed:", firestoreError)
-      // Continue with local storage as fallback
+      console.error("✗ Firestore check/upload failed:", firestoreError)
+      // 強制策略：無法驗證或寫入時，拒絕請求，避免繞過一人一張限制
+      return NextResponse.json(
+        {
+          success: false,
+          error: "目前無法驗證上傳狀態，請稍後再試",
+          step: "firestore-unavailable",
+        },
+        { status: 503 },
+      )
     }
 
     // Step 10: Store in global storage (as backup)

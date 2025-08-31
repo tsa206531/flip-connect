@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -139,6 +139,11 @@ function Popup({ type, message, details, onClose }: PopupProps) {
 
 export default function UploadPage() {
   const { user, loading } = useAuth()
+  const isBypass = user?.email === 'tsa206531@gmail.com'
+  const [alreadyHasCard, setAlreadyHasCard] = useState<boolean | null>(null)
+  const checking = alreadyHasCard === null && !!user
+
+
   const router = useRouter()
   const [name, setName] = useState("")
   const [position, setPosition] = useState("")
@@ -273,6 +278,7 @@ export default function UploadPage() {
       formData.append("frontImage", frontImage)
       formData.append("backImage", backImage)
       formData.append("userId", user?.uid || "")
+      formData.append("userEmail", user?.email || "")
 
       console.log("FormData created, sending request...")
 
@@ -368,6 +374,27 @@ export default function UploadPage() {
       router.push("/")
     }
   }
+
+  // 進入頁面時查詢該使用者是否已有卡片，做前端防呆
+  useEffect(() => {
+    let cancelled = false
+    const check = async () => {
+      if (!user) return
+      try {
+        const res = await fetch(`/api/users/${user.uid}/latest-card`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (!cancelled) {
+          setAlreadyHasCard(!!data.hasCard)
+        }
+      } catch (e) {
+        console.warn("failed to check existing card:", e)
+        if (!cancelled) setAlreadyHasCard(null)
+      }
+    }
+    check()
+    return () => { cancelled = true }
+  }, [user])
 
   // 檢查用戶是否已登入
   if (loading) {
@@ -658,6 +685,17 @@ export default function UploadPage() {
                   />
                 </div>
 
+                {/* 若已存在卡片，顯示提醒並禁用提交 */}
+                {alreadyHasCard && (
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5" />
+                      <p className="font-noto-sans-tc">您已上傳過名片，每個帳號僅能上傳一張。</p>
+                    </div>
+                    <p className="mt-2 text-sm text-amber-300/90 font-syne">若需更新，請聯繫工作人員或等待更新功能。</p>
+                  </div>
+                )}
+
                 {/* 操作按鈕 */}
                 <motion.div
                   className="flex gap-4 pt-8"
@@ -676,16 +714,22 @@ export default function UploadPage() {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-syne text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                    disabled={uploading || !name.trim() || !position.trim() || !frontImage || !backImage}
+                    className={`flex-1 h-14 rounded-xl font-syne text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 ${
+                      alreadyHasCard
+                        ? 'bg-gray-500 hover:bg-gray-500/80 text-white cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                    disabled={checking || (!isBypass && alreadyHasCard) || uploading || !name.trim() || !position.trim() || !frontImage || !backImage}
                   >
-                    {uploading ? (
+                    {checking ? (
+                      <span className="text-base">檢查中...</span>
+                    ) : uploading ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />
                         <span className="text-base">上傳中...</span>
                       </>
                     ) : (
-                      <span className="text-base">確認上傳</span>
+                      <span className="text-base">{alreadyHasCard ? '你已經上傳過名片' : '確認上傳'}</span>
                     )}
                   </Button>
                 </motion.div>
