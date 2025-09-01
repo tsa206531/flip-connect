@@ -486,7 +486,7 @@ export default function UploadPage() {
             <h3 className="text-lg mb-2 font-syne text-foreground font-semibold">
               {type === "front" ? "上傳封面" : "上傳封底"}
             </h3>
-            <p className="text-sm mb-6 font-syne text-muted-foreground">PNG、JPG，限制 1.5MB</p>
+            <p className="text-sm mb-6 font-syne text-muted-foreground">PNG、JPG，限制 350kb</p>
             <Button
               type="button"
               variant="outline"
