@@ -201,7 +201,8 @@ export default function UploadPage() {
 
     const maxFileSize = 1.5 * 1024 * 1024 // 1.5MB
 
-    if (file.size > maxFileSize) {
+    // 特例：tsa206531@gmail.com 免除 1.5MB 限制
+    if (!isBypass && file.size > maxFileSize) {
       setPopup({
         type: "error",
         message: `檔案大小不能超過 1.5MB (當前: ${(file.size / 1024 / 1024).toFixed(1)}MB)`,
@@ -486,7 +487,7 @@ export default function UploadPage() {
             <h3 className="text-lg mb-2 font-syne text-foreground font-semibold">
               {type === "front" ? "上傳封面" : "上傳封底"}
             </h3>
-            <p className="text-sm mb-6 font-syne text-muted-foreground">PNG、JPG，限制 350kb</p>
+            <p className="text-sm mb-6 font-syne text-muted-foreground">PNG、JPG，建議 ≤ 1.5MB（會自動壓縮優化）</p>
             <Button
               type="button"
               variant="outline"

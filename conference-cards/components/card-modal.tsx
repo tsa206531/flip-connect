@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { X, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import OptimizedImage from "@/components/optimized-image"
 
 interface Card {
   id: string
@@ -78,7 +79,7 @@ export default function CardModal({ card, isOpen, onClose }: CardModalProps) {
                     <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 via-transparent to-blue-500/20 rounded-2xl"></div>
 
                     <div className="relative w-full h-full">
-                      <Image
+                      <OptimizedImage
                         src={card.backImageUrl || "/placeholder.svg"}
                         alt={`${card.name} 封底`}
                         fill
@@ -107,7 +108,7 @@ export default function CardModal({ card, isOpen, onClose }: CardModalProps) {
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-transparent to-green-500/20 rounded-2xl"></div>
 
                     <div className="relative w-full h-full">
-                      <Image
+                      <OptimizedImage
                         src={card.frontImageUrl || "/placeholder.svg"}
                         alt={`${card.name} 封面`}
                         fill

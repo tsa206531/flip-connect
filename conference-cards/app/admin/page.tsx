@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Trash2, Search, RefreshCw, Users, Calendar, Eye, EyeOff, Database, HardDrive } from "lucide-react"
 import Image from "next/image"
+import OptimizedImage from "@/components/optimized-image"
 import Link from "next/link"
 import UserDrawManagement from "@/components/user-draw-management"
 

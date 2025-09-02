@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Trash2, Search, RefreshCw, User, Mail, Calendar, AlertTriangle } from "lucide-react"
 import Image from "next/image"
+import OptimizedImage from "@/components/optimized-image"
 import { findUserByEmail, getUserDrawRecord, clearUserDrawRecord, getUserInfo, removeUserDrawnCards } from "@/lib/admin-draw-management"
 import { DrawRecord } from "@/lib/draw-cache"
 
@@ -476,7 +477,7 @@ export default function UserDrawManagement({ cards }: { cards: CardData[] }) {
                     
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div className="relative aspect-[3/4] bg-gray-700 rounded overflow-hidden">
-                        <Image
+                        <OptimizedImage
                           src={card.frontImageUrl || "/placeholder.svg"}
                           alt={`${card.name} 封面`}
                           fill
@@ -485,7 +486,7 @@ export default function UserDrawManagement({ cards }: { cards: CardData[] }) {
                         />
                       </div>
                       <div className="relative aspect-[3/4] bg-gray-700 rounded overflow-hidden">
-                        <Image
+                        <OptimizedImage
                           src={card.backImageUrl || "/placeholder.svg"}
                           alt={`${card.name} 封底`}
                           fill

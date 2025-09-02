@@ -8,6 +8,9 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    domains: ['res.cloudinary.com'],
+    // or use remotePatterns if needed for subdomains
+    // remotePatterns: [{ protocol: 'https', hostname: 'res.cloudinary.com' }]
   },
 }
 

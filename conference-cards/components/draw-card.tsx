@@ -6,6 +6,7 @@ import { Shuffle, Users, Sparkles, ArrowLeft, Clock, AlertCircle } from "lucide-
 import { Button } from "@/components/ui/button"
 import { Card as UICard, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
+import OptimizedImage from "@/components/optimized-image"
 import { 
   initializeDrawRecord, 
   canDrawCard, 
@@ -395,7 +396,7 @@ export default function DrawCard({ cards, isOpen, onClose, currentUserId }: Draw
                 </CardHeader>
                 <CardContent className="text-center">
                   <div className="mb-6">
-                    <Image
+                    <OptimizedImage
                       src={drawnCard.frontImageUrl}
                       alt={drawnCard.name}
                       width={200}
@@ -439,7 +440,7 @@ export default function DrawCard({ cards, isOpen, onClose, currentUserId }: Draw
                   <UICard className="glass-morphism hover:scale-105 transition-transform duration-300">
                     <CardContent className="p-4">
                       <div className="mb-4">
-                        <Image
+                        <OptimizedImage
                           src={card.frontImageUrl}
                           alt={card.name}
                           width={120}

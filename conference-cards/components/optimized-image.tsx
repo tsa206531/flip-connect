@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
+import { optimizeCloudinaryUrl } from '@/lib/cloudinary-url'
 import { ImageIcon, AlertCircle } from 'lucide-react'
 
 interface OptimizedImageProps {
@@ -20,6 +21,7 @@ interface OptimizedImageProps {
   onError?: () => void
   fallbackSrc?: string
   lazy?: boolean
+  maxWidth?: number
 }
 
 // 生成模糊佔位符的 base64 圖片
@@ -44,7 +46,7 @@ const generateBlurDataURL = (width: number = 10, height: number = 10) => {
 }
 
 // 預設模糊佔位符
-const DEFAULT_BLUR_DATA_URL = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHZpZXdCb3g9IjAgMCAxMCAxMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZGllbnQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgo8c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojZjNmNGY2O3N0b3Atb3BhY2l0eToxIiAvPgo8c3RvcCBvZmZzZXQ9IjUwJSIgc3R5bGU9InN0b3AtY29sb3I6I2U1ZTdlYjtzdG9wLW9wYWNpdHk6MSIgLz4KPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojZDFkNWRiO3N0b3Atb3BhY2l0eToxIiAvPgo8L2xpbmVhckdyYWRpZW50Pgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgZmlsbD0idXJsKCNncmFkaWVudCkiLz4KPC9zdmc+"
+const DEFAULT_BLUR_DATA_URL = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHZpZXdCb3g9IjAgMCAxMCAxMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZGllbnQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgo8c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojZjNmNGY2O3N0b3Atb3BhY2l0eToxIiAvPgo8c3RvcCBvZmZzZXQ9IjUwJSIgc3R5bGU9InN0b3AtY29sb3I6I2U1ZTdlYjtzdG9wLW9wYWNpdHk6MSIgLz4KPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2x"
 
 export default function OptimizedImage({
   src,
@@ -61,7 +63,8 @@ export default function OptimizedImage({
   onLoad,
   onError,
   fallbackSrc,
-  lazy = true
+  lazy = true,
+  maxWidth = 1200
 }: OptimizedImageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -112,8 +115,12 @@ export default function OptimizedImage({
     onError?.()
   }
 
+  // Compute effective width for Cloudinary (prefer explicit "width" prop; if fill, try to read container width later)
+  const effectiveWidth = width || (typeof window !== 'undefined' && imgRef.current ? imgRef.current.clientWidth : undefined) || maxWidth
+  const transformedSrc = optimizeCloudinaryUrl(currentSrc, { width: effectiveWidth, quality: 'auto', format: 'auto', crop: 'limit' })
+
   const imageProps = {
-    src: currentSrc,
+    src: transformedSrc, 
     alt,
     onLoad: handleLoad,
     onError: handleError,
