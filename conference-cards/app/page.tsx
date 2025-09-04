@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { Suspense, useState, useEffect } from "react"
+import { Suspense, useState, useEffect, useRef } from "react"
 import CardGrid from "@/components/card-grid"
 import { Button } from "@/components/ui/button"
 import dynamic from "next/dynamic"
@@ -9,7 +9,7 @@ const MatrixLoading = dynamic(() => import("@/components/matrix-loading"), { ssr
 import DrawCard from "@/components/draw-card"
 import UserMenu from "@/components/user-menu"
 import { Download, FileImage, Sparkles, Users, Calendar, Shuffle, Eye } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion"
 import { HomeCheck } from "@/components/HomeCheck"
 import { useAuth } from "@/contexts/AuthContext"
 import CardModal from "@/components/card-modal"
@@ -128,26 +128,42 @@ function FeatureHighlights({ onViewMyCard }: { onViewMyCard: () => void }) {
 
 export default function Page() {
   const { user } = useAuth()
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const [isMouseMoving, setIsMouseMoving] = useState(false)
+  const mouseX = useMotionValue(-1000)
+  const mouseY = useMotionValue(-1000)
+  const glowOpacity = useMotionValue(0)
+  const glowX = useSpring(mouseX, { stiffness: 300, damping: 40 })
+  const glowY = useSpring(mouseY, { stiffness: 300, damping: 40 })
+  const glowScale = useTransform(glowOpacity, [0, 0.45], [0.8, 1])
+  const moveTimeoutRef = useRef<number | null>(null)
   const [showLoading, setShowLoading] = useState(true)
   const [showDrawModal, setShowDrawModal] = useState(false)
   const [cards, setCards] = useState<Card[]>([])
   const [showUserCardModal, setShowUserCardModal] = useState(false)
   const [selectedUserCard, setSelectedUserCard] = useState<Card | null>(null)
 
+  useEffect(() => {
+    return () => {
+      if (moveTimeoutRef.current) {
+        window.clearTimeout(moveTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const handleLoadingComplete = () => {
     setShowLoading(false)
   }
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    setMousePosition({
-      x: e.clientX,
-      y: e.clientY,
-    })
-    setIsMouseMoving(true)
+    mouseX.set(e.clientX - 30)
+    mouseY.set(e.clientY - 30)
+    glowOpacity.set(0.45)
 
-    setTimeout(() => setIsMouseMoving(false), 100)
+    if (moveTimeoutRef.current) {
+      window.clearTimeout(moveTimeoutRef.current)
+    }
+    moveTimeoutRef.current = window.setTimeout(() => {
+      glowOpacity.set(0)
+    }, 120)
   }
 
   const handleDownloadTemplate = () => {
@@ -199,6 +215,14 @@ export default function Page() {
     <motion.div
       className="min-h-screen bg-black relative overflow-hidden"
       onMouseMove={handleMouseMove}
+      onTouchMove={(e) => {
+        if (e.touches && e.touches[0]) {
+          mouseX.set(e.touches[0].clientX - 30)
+          mouseY.set(e.touches[0].clientY - 30)
+          glowOpacity.set(0.45)
+        }
+      }}
+      onMouseLeave={() => glowOpacity.set(0)}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
@@ -249,12 +273,10 @@ export default function Page() {
       <motion.div
         className="fixed pointer-events-none z-40"
         style={{
-          left: mousePosition.x - 30,
-          top: mousePosition.y - 30,
-        }}
-        animate={{
-          opacity: isMouseMoving ? 0.45 : 0,
-          scale: isMouseMoving ? 1 : 0.8,
+          left: glowX,
+          top: glowY,
+          opacity: glowOpacity,
+          scale: glowScale,
         }}
         transition={{ duration: 0.2 }}
       >

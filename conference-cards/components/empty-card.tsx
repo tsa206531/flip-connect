@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, type TargetAndTransition } from "framer-motion"
 import { Plus, Upload, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -28,7 +28,7 @@ export default function EmptyCard({ index }: EmptyCardProps) {
   }
 
   // 創建交錯的浮動動畫
-  const floatingAnimation = {
+  const floatingAnimation: TargetAndTransition = {
     y: [-8, 8, -8],
     transition: {
       duration: 3 + (index % 3) * 0.5,
@@ -127,24 +127,16 @@ export default function EmptyCard({ index }: EmptyCardProps) {
 
             {/* 文字內容 */}
             <div className="text-center space-y-2">
-              <motion.h3
-                className="text-xl font-bold text-white font-noto-sans-tc"
-                animate={{
-                  color: isHovered ? "hsl(var(--secondary))" : "hsl(var(--foreground))",
-                }}
-                transition={{ duration: 0.3 }}
+              <h3
+                className="text-xl font-bold text-foreground font-noto-sans-tc transition-colors duration-300 group-hover/card:text-secondary"
               >
                 上傳名片
-              </motion.h3>
-              <motion.p
-                className="text-muted-foreground text-sm font-syne"
-                animate={{
-                  color: isHovered ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                }}
-                transition={{ duration: 0.3 }}
+              </h3>
+              <p
+                className="text-muted-foreground text-sm font-syne transition-colors duration-300 group-hover/card:text-primary"
               >
                 點擊開始製作您的名片
-              </motion.p>
+              </p>
             </div>
 
             {/* 上傳提示圖標 */}

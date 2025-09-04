@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
     const limitNum = Math.max(1, Math.min(parseInt(limitParam || "12", 10) || 12, 50))
 
-    const { collection, query: fsQuery, orderBy, getDocs, startAfter, limit: fsLimit, Timestamp } = await import('firebase/firestore')
+    const { collection, query: fsQuery, orderBy, getDocs, startAfter, limit: fsLimit, Timestamp, getCountFromServer } = await import('firebase/firestore')
 
     let firestoreCards: any[] = []
     let nextCursor: string | null = null
@@ -162,10 +162,13 @@ export async function GET(request: Request) {
       const pageItems = list.slice(0, limitNum)
       const next = pageItems.length === limitNum ? pageItems[pageItems.length - 1]?.createdAt ?? null : null
 
+      const totalCount = list.length
+
       return NextResponse.json({
         success: true,
         cards: pageItems,
         count: pageItems.length,
+        totalCount,
         nextCursor: next,
         hasMore: pageItems.length === limitNum,
         source: 'local'
@@ -174,10 +177,20 @@ export async function GET(request: Request) {
 
     const hasMore = firestoreCards.length === limitNum && !!nextCursor
 
+    // Get total count from Firestore (aggregate count)
+    let totalCount = firestoreCards.length
+    try {
+      const countSnapshot = await getCountFromServer(collection(db, 'cards'))
+      totalCount = countSnapshot.data().count || firestoreCards.length
+    } catch (e) {
+      console.warn('Failed to get total count from Firestore:', e)
+    }
+
     return NextResponse.json({
       success: true,
       cards: firestoreCards,
       count: firestoreCards.length,
+      totalCount,
       nextCursor,
       hasMore,
       source: 'firestore'

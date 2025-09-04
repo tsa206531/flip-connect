@@ -28,6 +28,7 @@ interface CardsResponse {
   page: number
   totalPages: number
   hasMore: boolean
+  nextCursor?: string | null
 }
 
 export default function AdminPage() {
@@ -39,21 +40,31 @@ export default function AdminPage() {
   const [deleting, setDeleting] = useState<string[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [clearingDrawRecords, setClearingDrawRecords] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCards()
   }, [])
 
-  const fetchCards = async () => {
+  const PAGE_SIZE = 25
+
+  const fetchCards = async (cursor?: string | null) => {
     try {
       setLoading(true)
-      const response = await fetch("/api/cards", {
+      const params = new URLSearchParams()
+      params.set('limit', String(PAGE_SIZE))
+      if (cursor) params.set('cursor', cursor)
+
+      const response = await fetch(`/api/cards?${params.toString()}`, {
         cache: "no-store",
       })
       if (response.ok) {
         const data: CardsResponse = await response.json()
-        setCards(data.cards || [])
+        setCards(cursor ? (prev) => [...prev, ...(data.cards || [])] : (data.cards || []))
         setTotalCount(data.totalCount || 0)
+        setHasMore(!!data.hasMore)
+        setNextCursor(data.nextCursor || null)
         console.log(`Loaded ${data.count} cards (${data.totalCount} total)`)
       }
     } catch (error) {
@@ -457,6 +468,7 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCards.map((card) => (
               <Card key={card.id} className="bg-gray-800/50 border-gray-700 hover:bg-gray-800/70 transition-colors">
@@ -526,6 +538,21 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
+
+          {/* 載入更多 */}
+          {hasMore && (
+            <div className="flex justify-center mt-8">
+              <Button
+                onClick={() => fetchCards(nextCursor)}
+                disabled={loading}
+                variant="outline"
+                className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 font-syne"
+              >
+                {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : '載入更多'}
+              </Button>
+            </div>
+          )}
+          </>
         )}
       </div>
     </div>

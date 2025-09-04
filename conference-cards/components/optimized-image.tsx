@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import { optimizeCloudinaryUrl } from '@/lib/cloudinary-url'
 import { ImageIcon, AlertCircle } from 'lucide-react'
@@ -71,6 +71,24 @@ export default function OptimizedImage({
   const [currentSrc, setCurrentSrc] = useState(src)
   const [isInView, setIsInView] = useState(!lazy || priority)
   const imgRef = useRef<HTMLDivElement>(null)
+  const [measuredWidth, setMeasuredWidth] = useState<number | null>(null)
+  const [lockedWidth, setLockedWidth] = useState<number | null>(null)
+
+  // Observe size to get stable container width
+  useEffect(() => {
+    if (!fill) return
+    if (!imgRef.current) return
+
+    const el = imgRef.current
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.round(entry.contentRect.width)
+        setMeasuredWidth(w)
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [fill])
 
   // Intersection Observer for lazy loading
   useEffect(() => {
@@ -98,6 +116,10 @@ export default function OptimizedImage({
   }, [lazy, priority, isInView])
 
   const handleLoad = () => {
+    if (fill && lockedWidth == null && measuredWidth && measuredWidth > 0) {
+      // lock after first load to stabilize src
+      setLockedWidth(measuredWidth)
+    }
     setIsLoading(false)
     onLoad?.()
   }
@@ -115,9 +137,30 @@ export default function OptimizedImage({
     onError?.()
   }
 
-  // Compute effective width for Cloudinary (prefer explicit "width" prop; if fill, try to read container width later)
-  const effectiveWidth = width || (typeof window !== 'undefined' && imgRef.current ? imgRef.current.clientWidth : undefined) || maxWidth
-  const transformedSrc = optimizeCloudinaryUrl(currentSrc, { width: effectiveWidth, quality: 'auto', format: 'auto', crop: 'limit' })
+  // Lock width once after first successful image load to avoid wobbling URLs
+  useEffect(() => {
+    if (!fill) return
+    if (lockedWidth != null) return
+    if (measuredWidth && measuredWidth > 0) {
+      setLockedWidth(measuredWidth)
+    }
+  }, [fill, measuredWidth, lockedWidth])
+
+  // Compute effective width for Cloudinary (prefer explicit width; if fill, use locked/measured width; otherwise fallback to maxWidth)
+  const effectiveWidth = useMemo(() => {
+    if (width) return width
+    if (fill) {
+      // Prefer lockedWidth; otherwise measuredWidth; fallback to undefined
+      return lockedWidth || measuredWidth || undefined
+    }
+    return width
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width, fill, lockedWidth, measuredWidth])
+
+  const transformedSrc = useMemo(() => {
+    const w = effectiveWidth || maxWidth
+    return optimizeCloudinaryUrl(currentSrc, { width: w, quality: 'auto', format: 'auto', crop: 'limit' })
+  }, [currentSrc, effectiveWidth, maxWidth])
 
   const imageProps = {
     src: transformedSrc, 
@@ -126,7 +169,7 @@ export default function OptimizedImage({
     onError: handleError,
     quality,
     className: `transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'} ${className}`,
-    ...(fill ? { fill: true } : { width, height }),
+    ...(fill ? { fill: true } : { width: width || effectiveWidth, height }),
     ...(sizes && { sizes }),
     ...(placeholder === 'blur' && {
       placeholder: 'blur' as const,
@@ -166,6 +209,8 @@ export default function OptimizedImage({
         <Image
           {...imageProps}
           priority={priority}
+          onLoad={handleLoad}
+          onError={handleError}
         />
       )}
 

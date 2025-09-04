@@ -4,9 +4,9 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Shuffle, Users, ZoomIn, RotateCcw, Eye, Clock, AlertCircle } from "lucide-react"
+import { ArrowLeft, Shuffle, Users, ZoomIn, RotateCcw, Clock, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, type TargetAndTransition, useMotionValue, useSpring, useTransform } from "framer-motion"
 import Image from "next/image"
 import OptimizedImage from "@/components/optimized-image"
 import CardModal from "@/components/card-modal"
@@ -66,7 +66,7 @@ function DrawnInteractiveCard({ card, index, drawOrder, drawnAt, onCardClick }: 
   }
 
   // 創建交錯的浮動動畫
-  const floatingAnimation = {
+  const floatingAnimation: TargetAndTransition = {
     y: [-8, 8, -8],
     transition: {
       duration: 3 + (index % 3) * 0.5,
@@ -264,7 +264,7 @@ function DrawnInteractiveCard({ card, index, drawOrder, drawnAt, onCardClick }: 
                   initial={{ opacity: 0.7 }}
                   animate={{ opacity: isHovered ? 1 : 0.7 }}
                 >
-                  <Eye className="w-5 h-5 text-white" />
+                  <RotateCcw className="w-5 h-5 text-white" />
                 </motion.div>
               </div>
             </div>
@@ -283,7 +283,7 @@ function DrawnInteractiveCard({ card, index, drawOrder, drawnAt, onCardClick }: 
             transition={{ duration: 0.2 }}
           >
             <div className="glass-morphism rounded-lg px-3 py-2 text-xs text-white font-syne whitespace-nowrap">
-              {isFlipped ? "點擊查看封面" : "點擊查看封底"}
+              {isFlipped ? "點擊查看封底" : "點擊查看封面"}
             </div>
           </motion.div>
         )}
@@ -299,12 +299,20 @@ export default function DrawPage() {
   const [drawing, setDrawing] = useState(false)
   const [drawnCard, setDrawnCard] = useState<CardData | null>(null)
   const [drawHistory, setDrawHistory] = useState<DrawnCard[]>([])
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const [isMouseMoving, setIsMouseMoving] = useState(false)
+  const mouseX = useMotionValue(-1000)
+  const mouseY = useMotionValue(-1000)
+  const glowOpacity = useMotionValue(0)
+  const glowX = useSpring(mouseX, { stiffness: 300, damping: 40 })
+  const glowY = useSpring(mouseY, { stiffness: 300, damping: 40 })
+  const glowScale = useTransform(glowOpacity, [0, 0.45], [0.8, 1])
   const [cardFlipped, setCardFlipped] = useState(false)
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [drawDisabled, setDrawDisabled] = useState(false)
+  useEffect(() => {
+    const id = setTimeout(() => glowOpacity.set(0), 150)
+    return () => clearTimeout(id)
+  }, [glowOpacity])
   
   // 新的混合緩存系統狀態
   const [drawRecord, setDrawRecord] = useState<DrawRecord | null>(null)
@@ -509,12 +517,9 @@ export default function DrawPage() {
   }
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    setMousePosition({
-      x: e.clientX,
-      y: e.clientY,
-    })
-    setIsMouseMoving(true)
-    setTimeout(() => setIsMouseMoving(false), 100)
+    mouseX.set(e.clientX - 30)
+    mouseY.set(e.clientY - 30)
+    glowOpacity.set(0.45)
   }
 
   // 獲取可抽取的卡片
@@ -610,17 +615,15 @@ export default function DrawPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden" onMouseMove={handleMouseMove}>
+    <div className="min-h-screen bg-black relative overflow-hidden" onMouseMove={handleMouseMove} onMouseLeave={() => glowOpacity.set(0)} onTouchMove={(e) => { if (e.touches && e.touches[0]) { mouseX.set(e.touches[0].clientX - 30); mouseY.set(e.touches[0].clientY - 30); glowOpacity.set(0.45); } }}>
       {/* Global cursor glow effect */}
       <motion.div
         className="fixed pointer-events-none z-40"
         style={{
-          left: mousePosition.x - 30,
-          top: mousePosition.y - 30,
-        }}
-        animate={{
-          opacity: isMouseMoving ? 0.45 : 0,
-          scale: isMouseMoving ? 1 : 0.8,
+          left: glowX,
+          top: glowY,
+          opacity: glowOpacity,
+          scale: glowScale,
         }}
         transition={{ duration: 0.2 }}
       >

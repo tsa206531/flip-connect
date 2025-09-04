@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, memo } from "react"
 import InteractiveCard from "./interactive-card"
 import EmptyCard from "./empty-card"
 import InitialEmptyState from "./initial-empty-state"
@@ -27,7 +27,7 @@ interface CardGridProps {
   onCardsLoaded?: (cards: Card[]) => void
 }
 
-export default function CardGrid({ onCardsLoaded }: CardGridProps) {
+function CardGrid({ onCardsLoaded }: CardGridProps) {
   const [allCards, setAllCards] = useState<Card[]>([])
   const [displayedCards, setDisplayedCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,10 +36,12 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [participantsCount, setParticipantsCount] = useState<number>(0)
   
   // 分頁配置
   const INITIAL_LOAD = 7  // 初始載入7張
   const LOAD_MORE = 4     // 每次載入4張
+  const MAX_DISPLAY = 15  // 最多顯示 15 張
   // 排序卡片：全部卡片隨機排列
   const sortCards = (cards: Card[]) => {
     return [...cards].sort(() => Math.random() - 0.5)
@@ -75,9 +77,16 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
       // 改為直接採用 API 分頁結果，不在前端限制最大數量
       const limitedCards = combinedCards
       setAllCards(limitedCards)
+     
+     // 設定參與者總數（優先使用後端 totalCount）
+     if (apiPayload && typeof apiPayload.totalCount === 'number') {
+       setParticipantsCount(apiPayload.totalCount)
+     } else {
+       setParticipantsCount(limitedCards.length)
+     }
 
-      // 初始顯示，並本地隨機
-      const initialCards = sortCards(limitedCards).slice(0, INITIAL_LOAD)
+      // 初始顯示，並本地隨機，限制最多顯示 20 張
+      const initialCards = sortCards(limitedCards).slice(0, Math.min(INITIAL_LOAD, MAX_DISPLAY))
       setDisplayedCards(initialCards)
 
       // 後端回傳 nextCursor 時代表還有下一頁
@@ -103,7 +112,12 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
 
   const loadMoreCards = async () => {
     if (loadingMore || !hasMore) return
-    
+    // 若已達到上限，則不再載入
+    if (displayedCards.length >= MAX_DISPLAY) {
+      setHasMore(false)
+      return
+    }
+
     setLoadingMore(true)
     
     try {
@@ -117,11 +131,15 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
 
       const newCards: Card[] = (data.cards || [])
       const shuffled = sortCards(newCards)
-      const newDisplayedCards = [...displayedCards, ...shuffled]
+      // 合併後限制最多顯示 20 張
+      const merged = [...displayedCards, ...shuffled]
+      const newDisplayedCards = merged.slice(0, MAX_DISPLAY)
 
       setDisplayedCards(newDisplayedCards)
-      setHasMore(!!data.nextCursor)
-      setNextCursor(data.nextCursor || null)
+      // 只要已達上限，就視為無更多
+      const reachedMax = newDisplayedCards.length >= MAX_DISPLAY
+      setHasMore(!reachedMax && !!data.nextCursor)
+      setNextCursor(reachedMax ? null : (data.nextCursor || null))
     } catch (e) {
       console.error(e)
       setHasMore(false)
@@ -213,7 +231,7 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
         <div className="glass-morphism rounded-2xl px-6 py-4 flex items-center gap-6">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-primary" />
-            <span className="text-foreground font-semibold">{allCards.length}</span>
+            <span className="text-foreground font-semibold">{participantsCount}</span>
             <span className="text-muted-foreground">位參與者</span>
           </div>
           <div className="w-px h-6 bg-border/50" />
@@ -320,3 +338,5 @@ export default function CardGrid({ onCardsLoaded }: CardGridProps) {
     </motion.div>
   )
 }
+
+export default memo(CardGrid)

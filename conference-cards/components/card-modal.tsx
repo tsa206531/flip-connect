@@ -143,7 +143,7 @@ export default function CardModal({ card, isOpen, onClose }: CardModalProps) {
 
             {/* Instructions */}
             <div className="mt-4 text-center">
-              <p className="text-gray-400 text-sm font-syne">點擊卡片翻面 • 點擊外部關閉</p>
+              <p className="text-gray-400 text-sm font-syne">點擊卡片翻面 • 點擊X關閉</p>
             </div>
           </motion.div>
         </motion.div>

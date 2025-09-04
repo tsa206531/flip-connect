@@ -186,24 +186,16 @@ export default function InitialEmptyState() {
 
                 {/* 文字內容 */}
                 <div className="text-center space-y-3">
-                  <motion.h3
-                    className="text-3xl font-bold text-foreground font-noto-sans-tc"
-                    animate={{
-                      color: isHovered ? "hsl(var(--secondary))" : "hsl(var(--foreground))",
-                    }}
-                    transition={{ duration: 0.3 }}
+                  <h3
+                    className="text-3xl font-bold text-foreground font-noto-sans-tc transition-colors duration-300 group-hover/card:text-secondary"
                   >
                     上傳名片
-                  </motion.h3>
-                  <motion.p
-                    className="text-muted-foreground text-lg font-syne"
-                    animate={{
-                      color: isHovered ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                    }}
-                    transition={{ duration: 0.3 }}
+                  </h3>
+                  <p
+                    className="text-muted-foreground text-lg font-syne transition-colors duration-300 group-hover/card:text-primary"
                   >
                     點擊開始製作您的名片
-                  </motion.p>
+                  </p>
                 </div>
 
                 {/* 上傳提示圖標 */}

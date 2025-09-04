@@ -2,9 +2,9 @@
 
 import type React from "react"
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, type TargetAndTransition, useMotionValue, useSpring } from "framer-motion"
 import CardImage from "./card-image"
-import { ZoomIn, RotateCcw, Eye } from "lucide-react"
+import { ZoomIn, RotateCcw } from "lucide-react"
 
 interface Card {
   id: string
@@ -24,7 +24,11 @@ interface InteractiveCardProps {
 export default function InteractiveCard({ card, index, onCardClick }: InteractiveCardProps) {
   const [isFlipped, setIsFlipped] = useState(true)
   const [isHovered, setIsHovered] = useState(false)
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  // motion values for hover glow position
+  const glowX = useMotionValue(-9999)
+  const glowY = useMotionValue(-9999)
+  const smoothGlowX = useSpring(glowX, { stiffness: 300, damping: 40 })
+  const smoothGlowY = useSpring(glowY, { stiffness: 300, damping: 40 })
 
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
@@ -39,18 +43,16 @@ export default function InteractiveCard({ card, index, onCardClick }: Interactiv
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    setMousePosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    })
+    glowX.set(e.clientX - rect.left - 20)
+    glowY.set(e.clientY - rect.top - 20)
   }
 
   // 創建交錯的浮動動畫
-  const floatingAnimation = {
+  const floatingAnimation: TargetAndTransition = {
     y: [-8, 8, -8],
     transition: {
       duration: 3 + (index % 3) * 0.5,
-      repeat: Number.POSITIVE_INFINITY,
+      repeat: Infinity,
       ease: "easeInOut",
       delay: index * 0.2,
     },
@@ -65,7 +67,11 @@ export default function InteractiveCard({ card, index, onCardClick }: Interactiv
         y: -15,
         transition: { duration: 0.4, ease: "easeOut" },
       }}
-      onHoverStart={() => setIsHovered(true)}
+      onHoverStart={() => {
+        setIsHovered(true)
+        // reset glow to current pointer so it appears instantly on enter
+        // no re-render needed because we use motion values
+      }}
       onHoverEnd={() => setIsHovered(false)}
       onMouseMove={handleMouseMove}
     >
@@ -91,8 +97,8 @@ export default function InteractiveCard({ card, index, onCardClick }: Interactiv
           <motion.div
             className="absolute pointer-events-none z-20"
             style={{
-              left: mousePosition.x - 20,
-              top: mousePosition.y - 20,
+              left: smoothGlowX,
+              top: smoothGlowY,
             }}
             initial={{ opacity: 0, scale: 0 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -205,7 +211,7 @@ export default function InteractiveCard({ card, index, onCardClick }: Interactiv
                   initial={{ opacity: 0.7 }}
                   animate={{ opacity: isHovered ? 1 : 0.7 }}
                 >
-                  <Eye className="w-5 h-5 text-white" />
+                  <RotateCcw className="w-5 h-5 text-white" />
                 </motion.div>
               </div>
             </div>
@@ -224,7 +230,7 @@ export default function InteractiveCard({ card, index, onCardClick }: Interactiv
             transition={{ duration: 0.2 }}
           >
             <div className="glass-morphism rounded-lg px-3 py-2 text-xs text-white font-syne whitespace-nowrap">
-              {isFlipped ? "點擊查看封面" : "點擊查看封底"}
+              {isFlipped ? "點擊查看封底" : "點擊查看封面"}
             </div>
           </motion.div>
         )}
