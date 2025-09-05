@@ -23,7 +23,9 @@ export async function GET(
         userId: latest.userId,
         name: latest.name,
         position: latest.position,
-        createdAt: (latest as any).createdAt?.toDate ? (latest as any).createdAt.toDate().toISOString() : latest.createdAt,
+        frontImageUrl: (latest as any).frontImageUrl,
+        backImageUrl: (latest as any).backImageUrl,
+        createdAt: (latest as any).createdAt?.toDate ? (latest as any).createdAt.toDate().toISOString() : (latest as any).createdAt,
       } : null
     })
   } catch (error) {

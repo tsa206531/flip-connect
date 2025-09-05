@@ -173,36 +173,33 @@ export default function Page() {
     link.click()
   }
 
-  const handleViewMyCard = () => {
+  const handleViewMyCard = async () => {
     if (!user) {
-      // 如果用户未登录，可以提示登录
       alert("請先登入以查看您的名片")
       return
     }
 
-    // 找到使用者所有自己的卡片，並取最新一張
-    const userCards = cards.filter(card => card.userId === user.uid)
-
-    if (userCards.length > 0) {
-      const parseTime = (v: any) => {
-        try {
-          if (!v) return 0
-          // 兼容字串/時間戳/Date
-          if (typeof v === 'string') return new Date(v).getTime() || 0
-          if (typeof v === 'number') return v
-          if (typeof v?.toDate === 'function') return v.toDate().getTime()
-          if (v instanceof Date) return v.getTime()
-          return 0
-        } catch { return 0 }
+    try {
+      const res = await fetch(`/api/users/${user.uid}/latest-card`, { cache: 'no-store' })
+      if (!res.ok) throw new Error('failed')
+      const data = await res.json()
+      if (data?.hasCard && data?.card) {
+        setSelectedUserCard({
+          id: data.card.id,
+          name: data.card.name,
+          position: data.card.position,
+          frontImageUrl: data.card.frontImageUrl,
+          backImageUrl: data.card.backImageUrl,
+          createdAt: data.card.createdAt,
+          userId: data.card.userId,
+        } as any)
+        setShowUserCardModal(true)
+      } else {
+        alert("您還沒有上傳名片，請先上傳您的名片")
       }
-
-      const latestUserCard = [...userCards].sort((a, b) => parseTime(b.createdAt as any) - parseTime(a.createdAt as any))[0]
-
-      setSelectedUserCard(latestUserCard)
-      setShowUserCardModal(true)
-    } else {
-      // 如果用户还没有上传卡片
-      alert("您還沒有上傳名片，請先上傳您的名片")
+    } catch (e) {
+      console.error(e)
+      alert("無法取得您的名片，請稍後重試")
     }
   }
 
