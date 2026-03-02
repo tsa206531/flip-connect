@@ -105,6 +105,16 @@ async function uploadFileToCloudinary(file: File, publicId: string) {
 
 export async function POST(request: NextRequest) {
   console.log("=== Upload API Called ===")
+  
+  // 系統已轉為唯讀展示模式，強制關閉所有上傳實作以防濫用
+  return NextResponse.json(
+    {
+      success: false,
+      error: "系統已關閉上傳功能，僅供展示",
+      step: "disabled",
+    },
+    { status: 403 }
+  )
 
   try {
     // Step 1: Parse form data
